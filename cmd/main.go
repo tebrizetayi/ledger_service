@@ -1,17 +1,17 @@
 package main
 
 import (
-	"context"
+	"database/sql"
 	"fmt"
 	"ledger_service/internal/api"
+	"ledger_service/internal/transaction_manager"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/allaboutapps/integresql-client-go"
-	"github.com/gofrs/uuid"
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -20,6 +20,15 @@ func main() {
 	if port == "" {
 		port = ":8080"
 	}
+
+	db, err := connectToDatabase()
+	if err != nil {
+		log.Fatalf("Failed to connect to the database: %v", err)
+	}
+
+	// Use the db object for querying and other operations
+
+	defer db.Close()
 
 	// Make a channel to listen for an interrupt or terminate signal from the OS.
 	// Use a buffered channel because the signal package requires it.
@@ -31,7 +40,8 @@ func main() {
 	serverErrors := make(chan error, 1)
 
 	// Services
-	controller := api.NewController()
+	transaction_manager := transaction_manager.NewTransactionManager(db)
+	controller := api.NewController(transaction_manager)
 
 	// Start the HTTP service listening for requests.
 	api := http.Server{
@@ -56,36 +66,25 @@ func main() {
 		log.Printf("main : %v : Start shutdown..", sig)
 	}
 }
+func connectToDatabase() (*sql.DB, error) {
+	host := "postgres"
+	port := 5432
+	user := "postgres"
+	password := "postgres"
+	dbname := "ledger"
 
-func Z() {
-	ctx := context.Background()
-	client, err := integresql.DefaultClientFromEnv()
+	connectionString := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+
+	db, err := sql.Open("postgres", connectionString)
 	if err != nil {
-		log.Fatalf("Failed to create integresql client: %v", err)
+		return nil, err
 	}
 
-	hash := uuid.Must(uuid.NewV4()).String()
-
-	template, err := client.InitializeTemplate(ctx, hash)
+	err = db.Ping()
 	if err != nil {
-		log.Fatalf("Failed to initialize template: %v", err)
+		return nil, err
 	}
 
-	if len(template.Config.Database) == 0 {
-		log.Fatalf("Template config database is empty")
-	}
-
-	testDB, err := client.GetTestDatabase(ctx, hash)
-	if err != nil {
-		log.Fatalf("Failed to create test database: %v", err)
-	}
-
-	defer func() {
-		err := client.DiscardTemplate(ctx, hash)
-		if err != nil {
-			log.Printf("Failed to drop test database: %v", err)
-		}
-	}()
-
-	fmt.Println(testDB)
+	fmt.Println("Successfully connected to the database!")
+	return db, nil
 }

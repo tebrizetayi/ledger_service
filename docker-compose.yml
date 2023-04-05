@@ -2,31 +2,34 @@ version: "3.9"
 
 networks:
   default:
-    name: ledger
-
+    name: ledger-network
 services:
-  ledger_service:
+  ledger_service: # ledger service
     build:
       context: .
       dockerfile: Dockerfile.api
     ports:
       - 8080:8080
     depends_on:
-      - postgres
-      - integresql
+      postgres:
+        condition: service_healthy
     environment:
-    
       POSTGRES_DB: &PGDATABASE "ledger"
       POSTGRES_USER: &PGUSER "postgres"
       POSTGRES_PASSWORD: &PGPASSWORD "postgres"
       POSTGRES_HOST: &PGHOST "postgres"
       POSTGRES_PORT: &PGPORT "5432"
       PGSSLMODE: &PGSSLMODE "disable"
-  postgres:
+  postgres: # postgres service
     image: postgres:13-alpine 
     command: "postgres -c 'shared_buffers=128MB' -c 'fsync=off' -c 'synchronous_commit=off' -c 'full_page_writes=off' -c 'max_connections=100' -c 'client_min_messages=warning'"
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     environment:
       POSTGRES_DB: *PGDATABASE
       POSTGRES_USER: *PGUSER
@@ -34,17 +37,32 @@ services:
     volumes:
       - pgvolume:/var/lib/postgresql/data
       - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql  
-  integresql:
+  integresql: # integresql service
     image: allaboutapps/integresql:1.0.0
     ports:
       - "5000:5000"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       PGHOST: *PGHOST
       PGUSER: *PGUSER
       PGPASSWORD: *PGPASSWORD
       PGSSLMODE: disable
       PGDATABASE: *PGDATABASE
+  test: # test service
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_DB: *PGDATABASE
+      POSTGRES_USER: *PGUSER
+      POSTGRES_PASSWORD: *PGPASSWORD
+      POSTGRES_HOST: *PGHOST
+      POSTGRES_PORT: *PGPORT
+      PGSSLMODE: *PGSSLMODE
 volumes:
   pgvolume: # declare a named volume to persist DB data

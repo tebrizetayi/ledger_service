@@ -1,4 +1,4 @@
-package storage
+package transaction_manager
 
 import (
 	"os"
@@ -6,6 +6,5 @@ import (
 )
 
 func TestMain(m *testing.M) {
-
 	os.Exit(m.Run())
 }

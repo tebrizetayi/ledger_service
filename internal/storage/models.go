@@ -1,24 +1,17 @@
 package storage
 
 import (
-	"time"
+	"database/sql"
 )
 
-type Transaction struct {
-	ID        int
-	UserID    int
-	Amount    float64
-	CreatedAt time.Time
+type StorageClient struct {
+	TransactionRepository *TransactionRepository
+	UserRepository        *UserRepository
 }
 
-type Storage interface {
-	TransactionRepository
+func NewStorageClient(db *sql.DB) StorageClient {
+	return StorageClient{
+		TransactionRepository: NewTransactionRepository(db),
+		UserRepository:        NewUserRepository(db),
+	}
 }
-
-/*
-type TransactionRepository interface {
-	AddTransaction(userID int64, amount float64) (Transaction, error)
-	GetUserBalance(userID int64) (float64, error)
-	GetUserTransactionHistory(userID int64, page int, pageSize int) ([]Transaction, error)
-}
-*/
