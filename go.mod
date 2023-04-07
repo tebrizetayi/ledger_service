@@ -1,4 +1,4 @@
-module ledger_service
+module github.com/tebrizetayi/ledger_service
 
 go 1.20
 

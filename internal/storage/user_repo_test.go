@@ -2,8 +2,9 @@ package storage
 
 import (
 	"context"
-	utils "ledger_service/internal/test_utils"
 	"testing"
+
+	utils "github.com/tebrizetayi/ledger_service/internal/test_utils"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

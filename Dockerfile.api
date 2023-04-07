@@ -13,14 +13,11 @@ RUN go mod download
 # Copy the source code into the container
 COPY . .
 
-
 # Expose the service port
 EXPOSE 8080
 
-
 # Run the service
 RUN go build -o ledger_service ./cmd/.
-
 
 # run binary
 ENTRYPOINT [ "./ledger_service" ]

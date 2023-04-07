@@ -3,8 +3,9 @@ package transaction_manager
 import (
 	"database/sql"
 	"errors"
-	"ledger_service/internal/storage"
 	"time"
+
+	"github.com/tebrizetayi/ledger_service/internal/storage"
 
 	"context"
 
@@ -19,8 +20,8 @@ type Storage interface {
 	storage.StorageClient
 }
 
-type TransactionManager struct {
-	StorageClient storage.StorageClient
+type TransactionManagerClient struct {
+	storageClient storage.StorageClient
 }
 
 type Transaction struct {
@@ -30,20 +31,20 @@ type Transaction struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-func NewTransactionManager(db *sql.DB) *TransactionManager {
-	return &TransactionManager{
-		StorageClient: storage.NewStorageClient(db),
+func NewTransactionManagerClient(db *sql.DB) *TransactionManagerClient {
+	return &TransactionManagerClient{
+		storageClient: storage.NewStorageClient(db),
 	}
 }
 
-func (tm *TransactionManager) AddTransaction(ctx context.Context, transactionEntity Transaction) (Transaction, error) {
+func (tm *TransactionManagerClient) AddTransaction(ctx context.Context, transactionEntity Transaction) (Transaction, error) {
 	if !tm.ValidateTransaction(ctx, transactionEntity) {
 		return Transaction{}, ErrInvalidTransaction
 	}
 
 	transactionEntity.CreatedAt = time.Now()
 
-	_, err := tm.StorageClient.TransactionRepository.AddTransaction(ctx, storage.Transaction{
+	_, err := tm.storageClient.TransactionRepository.AddTransaction(ctx, storage.Transaction{
 		ID:        transactionEntity.ID,
 		Amount:    transactionEntity.Amount,
 		UserID:    transactionEntity.UserID,
@@ -56,28 +57,19 @@ func (tm *TransactionManager) AddTransaction(ctx context.Context, transactionEnt
 	return transactionEntity, nil
 }
 
-func (tm *TransactionManager) ValidateTransaction(ctx context.Context, transaction Transaction) bool {
+func (tm *TransactionManagerClient) ValidateTransaction(ctx context.Context, transaction Transaction) bool {
 	// Validate the transaction
-	_, err := uuid.Parse(transaction.UserID.String())
-	if err != nil {
-		return false
-	}
-
-	if transaction.Amount <= 0 {
-		return false
-	}
-
-	return true
+	return transaction.Amount <= 0.00
 }
 
-func (tm *TransactionManager) GetUserBalance(ctx context.Context, userID uuid.UUID) (float64, error) {
+func (tm *TransactionManagerClient) GetUserBalance(ctx context.Context, userID uuid.UUID) (float64, error) {
 	// Validate the user
-	_, err := tm.StorageClient.UserRepository.FindByID(ctx, userID)
+	_, err := tm.storageClient.UserRepository.FindByID(ctx, userID)
 	if err != nil {
 		return 0, err
 	}
 
-	balance, err := tm.StorageClient.TransactionRepository.FindUserBalance(ctx, userID)
+	balance, err := tm.storageClient.TransactionRepository.FindUserBalance(ctx, userID)
 	if err != nil {
 		return 0, err
 	}
@@ -85,14 +77,14 @@ func (tm *TransactionManager) GetUserBalance(ctx context.Context, userID uuid.UU
 	return balance, nil
 }
 
-func (tm *TransactionManager) GetUserTransactionHistory(ctx context.Context, userID uuid.UUID, page int, pageSize int) ([]Transaction, error) {
+func (tm *TransactionManagerClient) GetUserTransactionHistory(ctx context.Context, userID uuid.UUID, page int, pageSize int) ([]Transaction, error) {
 	// Validate the user
-	_, err := tm.StorageClient.UserRepository.FindByID(ctx, userID)
+	_, err := tm.storageClient.UserRepository.FindByID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	transactionResult, err := tm.StorageClient.TransactionRepository.GetUserTransactionHistory(ctx, userID, page, pageSize)
+	transactionResult, err := tm.storageClient.TransactionRepository.GetUserTransactionHistory(ctx, userID, page, pageSize)
 	if err != nil {
 		return nil, err
 	}

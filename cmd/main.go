@@ -3,13 +3,14 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"ledger_service/internal/api"
-	"ledger_service/internal/transaction_manager"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/tebrizetayi/ledger_service/internal/api"
+	"github.com/tebrizetayi/ledger_service/internal/transaction_manager"
 
 	_ "github.com/lib/pq"
 )
@@ -40,7 +41,7 @@ func main() {
 	serverErrors := make(chan error, 1)
 
 	// Services
-	transaction_manager := transaction_manager.NewTransactionManager(db)
+	transaction_manager := transaction_manager.NewTransactionManagerClient(db)
 	controller := api.NewController(transaction_manager)
 
 	// Start the HTTP service listening for requests.
