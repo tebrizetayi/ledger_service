@@ -1,7 +1,6 @@
 package transaction_manager
 
 import (
-	"database/sql"
 	"errors"
 	"time"
 
@@ -31,9 +30,9 @@ type Transaction struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-func NewTransactionManagerClient(db *sql.DB) *TransactionManagerClient {
+func NewTransactionManagerClient(storage storage.StorageClient) *TransactionManagerClient {
 	return &TransactionManagerClient{
-		storageClient: storage.NewStorageClient(db),
+		storageClient: storage,
 	}
 }
 
@@ -59,7 +58,7 @@ func (tm *TransactionManagerClient) AddTransaction(ctx context.Context, transact
 
 func (tm *TransactionManagerClient) ValidateTransaction(ctx context.Context, transaction Transaction) bool {
 	// Validate the transaction
-	return transaction.Amount <= 0.00
+	return transaction.Amount > 0.00
 }
 
 func (tm *TransactionManagerClient) GetUserBalance(ctx context.Context, userID uuid.UUID) (float64, error) {

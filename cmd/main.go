@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/tebrizetayi/ledger_service/internal/api"
+	"github.com/tebrizetayi/ledger_service/internal/storage"
 	"github.com/tebrizetayi/ledger_service/internal/transaction_manager"
 
 	_ "github.com/lib/pq"
@@ -41,8 +42,9 @@ func main() {
 	serverErrors := make(chan error, 1)
 
 	// Services
-	transaction_manager := transaction_manager.NewTransactionManagerClient(db)
-	controller := api.NewController(transaction_manager)
+	storageClient := storage.NewStorageClient(db)
+	transactionManager := transaction_manager.NewTransactionManagerClient(storageClient)
+	controller := api.NewController(transactionManager)
 
 	// Start the HTTP service listening for requests.
 	api := http.Server{

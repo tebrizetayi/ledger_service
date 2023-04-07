@@ -38,7 +38,7 @@ services:
       - pgvolume:/var/lib/postgresql/data
       - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql  
   integresql: # integresql service
-    image: allaboutapps/integresql:1.0.0
+    image: allaboutapps/integresql:latest
     ports:
       - "5000:5000"
     depends_on:
@@ -55,8 +55,7 @@ services:
       context: .
       dockerfile: Dockerfile.test
     depends_on:
-      postgres:
-        condition: service_healthy
+      - integresql
     environment:
       POSTGRES_DB: *PGDATABASE
       POSTGRES_USER: *PGUSER

@@ -49,9 +49,11 @@ func CreateTestDB(ctx context.Context) (*sql.DB, error) {
 	}
 
 	if err := client.SetupTemplateWithDBClient(ctx, hash, func(db *sql.DB) error {
+
 		if err := PopulateTemplateDB(ctx, db); err != nil {
 			return err
 		}
+		db.SetMaxOpenConns(100)
 		return nil
 	}); err != nil {
 		return nil, err
@@ -91,5 +93,6 @@ func CleanUpTestEnv(testEnv *TestEnv) error {
 	if testEnv.DB == nil {
 		return nil
 	}
-	return testEnv.DB.Close()
+	//return testEnv.DB.Close()
+	return nil
 }

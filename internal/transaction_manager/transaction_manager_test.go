@@ -18,7 +18,8 @@ func TestAddTransaction_Success(t *testing.T) {
 	}
 	defer utils.CleanUpTestEnv(&testEnv)
 
-	transactionManager := NewTransactionManagerClient(testEnv.DB)
+	storageClient := storage.NewStorageClient(testEnv.DB)
+	transactionManager := NewTransactionManagerClient(storageClient)
 
 	user := storage.User{
 		ID:       uuid.New(),
@@ -52,7 +53,8 @@ func TestAddTransaction_NotValidAmount(t *testing.T) {
 	}
 	defer utils.CleanUpTestEnv(&testEnv)
 
-	transactionManager := NewTransactionManagerClient(testEnv.DB)
+	storageClient := storage.NewStorageClient(testEnv.DB)
+	transactionManager := NewTransactionManagerClient(storageClient)
 
 	user := storage.User{
 		ID:       uuid.New(),
