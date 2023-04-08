@@ -5,20 +5,102 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"time"
+	"os"
 
-	"github.com/allaboutapps/integresql-client-go"
 	_ "github.com/lib/pq"
+
+	"github.com/ory/dockertest/v3"
+	"github.com/ory/dockertest/v3/docker"
 )
 
 type TestEnv struct {
 	Context context.Context
 	DB      *sql.DB
+	Cleanup func()
 }
 
-func PopulateTemplateDB(ctx context.Context, db *sql.DB) error {
-	if _, err := db.ExecContext(ctx, `
-	CREATE TABLE IF NOT EXISTS  users (
+func CreateTestEnv() (TestEnv, error) {
+
+	ctx := context.Background()
+	testDb, cleanup, err := CreateTestDB(ctx)
+	if err != nil {
+		return TestEnv{}, err
+	}
+
+	testEnv := TestEnv{
+		Context: ctx,
+		DB:      testDb,
+		Cleanup: cleanup,
+	}
+
+	return testEnv, nil
+}
+
+func startContainer(pool *dockertest.Pool) (string, func(), error) {
+	resource, err := pool.RunWithOptions(&dockertest.RunOptions{
+		Repository: "postgres",
+		Tag:        "13-alpine",
+		Env: []string{
+			"POSTGRES_USER=postgres",
+			"POSTGRES_PASSWORD=postgres",
+			"POSTGRES_DB=ledger",
+		},
+		NetworkID: "default",
+	}, func(config *docker.HostConfig) {
+		config.AutoRemove = true
+	})
+
+	if err != nil {
+		return "", nil, err
+	}
+
+	cleanup := func() {
+		if err := pool.Purge(resource); err != nil {
+			log.Printf("Could not purge resource: %s", err)
+		}
+	}
+
+	postgresHost := os.Getenv("POSTGRES_HOST")
+	if postgresHost == "" {
+		postgresHost = "localhost"
+	}
+
+	connString := fmt.Sprintf("host=%s port=%s user=postgres password=postgres dbname=ledger sslmode=disable", postgresHost, resource.GetPort("5432/tcp"))
+	// Wait for the container to be ready
+	err = pool.Retry(func() error {
+		db, err := sql.Open("postgres", connString)
+		if err != nil {
+			return err
+		}
+		return db.Ping()
+	})
+
+	if err != nil {
+		cleanup()
+		return "", nil, err
+	}
+
+	return connString, cleanup, nil
+}
+
+func CreateTestDB(ctx context.Context) (*sql.DB, func(), error) {
+	pool, err := dockertest.NewPool("")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	connString, cleanup, err := startContainer(pool)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	testDb, err := sql.Open("postgres", connString)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Load and execute the SQL script to create the required tables
+	script := `CREATE TABLE IF NOT EXISTS  users (
 		id UUID PRIMARY KEY,
 		username TEXT NOT NULL
 	);
@@ -28,71 +110,14 @@ func PopulateTemplateDB(ctx context.Context, db *sql.DB) error {
 		user_id UUID NOT NULL,
 		amount DOUBLE PRECISION NOT NULL,
 		created_at TIMESTAMP NOT NULL,
-		FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE);`); err != nil {
-		return err
-	}
+		FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+	);`
 
-	return nil
-}
-
-func CreateTestDB(ctx context.Context) (*sql.DB, error) {
-
-	hash := fmt.Sprintf("%d", time.Now().UnixNano())
-
-	client, err := integresql.DefaultClientFromEnv()
+	_, err = testDb.Exec(script)
 	if err != nil {
-		return nil, err
+		log.Fatalf("Could not execute SQL script: %s", err)
 	}
 
-	if err := client.ResetAllTracking(ctx); err != nil {
-		return nil, err
-	}
+	return testDb, cleanup, nil
 
-	if err := client.SetupTemplateWithDBClient(ctx, hash, func(db *sql.DB) error {
-
-		if err := PopulateTemplateDB(ctx, db); err != nil {
-			return err
-		}
-		db.SetMaxOpenConns(100)
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	testDatabase, err := client.GetTestDatabase(ctx, hash)
-	if err != nil {
-		log.Fatalf("failed to get test database: %v", err)
-	}
-
-	testDb, err := sql.Open("postgres", testDatabase.Config.ConnectionString())
-	if err != nil {
-		return nil, err
-	}
-	log.Printf("test database: %s", testDatabase.Config.Database)
-
-	return testDb, nil
-}
-
-func CreateTestEnv() (TestEnv, error) {
-
-	ctx := context.Background()
-	testDb, err := CreateTestDB(ctx)
-	if err != nil {
-		return TestEnv{}, err
-	}
-
-	testEnv := TestEnv{
-		Context: ctx,
-		DB:      testDb,
-	}
-
-	return testEnv, nil
-}
-
-func CleanUpTestEnv(testEnv *TestEnv) error {
-	if testEnv.DB == nil {
-		return nil
-	}
-	//return testEnv.DB.Close()
-	return nil
 }

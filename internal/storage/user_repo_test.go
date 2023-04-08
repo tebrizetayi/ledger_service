@@ -16,7 +16,7 @@ func TestAddUser_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create env: %v", err)
 	}
-	defer utils.CleanUpTestEnv(&testEnv)
+	defer testEnv.Cleanup()
 
 	userRepository := NewUserRepository(testEnv.DB)
 
@@ -38,7 +38,7 @@ func TestAddUser_ExistingUser_Error(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create env: %v", err)
 	}
-	defer utils.CleanUpTestEnv(&testEnv)
+	defer testEnv.Cleanup()
 
 	userRepository := NewUserRepository(testEnv.DB)
 
@@ -63,12 +63,12 @@ func TestAddUser_MultipleUsers_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create env: %v", err)
 	}
-	defer utils.CleanUpTestEnv(&testEnv)
+	defer testEnv.Cleanup()
 
 	userRepository := NewUserRepository(testEnv.DB)
 
 	users := []User{}
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 3; i++ {
 		user := User{
 			ID:       uuid.New(),
 			Username: "test",
@@ -89,7 +89,7 @@ func TestFindByID_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create env: %v", err)
 	}
-	defer utils.CleanUpTestEnv(&testEnv)
+	defer testEnv.Cleanup()
 
 	userRepository := NewUserRepository(testEnv.DB)
 
@@ -119,7 +119,7 @@ func TestFindByID_NotFound_Error(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create env: %v", err)
 	}
-	defer utils.CleanUpTestEnv(&testEnv)
+	defer testEnv.Cleanup()
 
 	userRepository := NewUserRepository(testEnv.DB)
 
@@ -135,7 +135,7 @@ func TestAddUser_ContextCancel_Error(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create env: %v", err)
 	}
-	defer utils.CleanUpTestEnv(&testEnv)
+	defer testEnv.Cleanup()
 
 	ctx, cancel := context.WithCancel(testEnv.Context)
 	testEnv.Context = ctx

@@ -41,8 +41,6 @@ func (tm *TransactionManagerClient) AddTransaction(ctx context.Context, transact
 		return Transaction{}, ErrInvalidTransaction
 	}
 
-	transactionEntity.CreatedAt = time.Now()
-
 	_, err := tm.storageClient.TransactionRepository.AddTransaction(ctx, storage.Transaction{
 		ID:        transactionEntity.ID,
 		Amount:    transactionEntity.Amount,
@@ -80,22 +78,31 @@ func (tm *TransactionManagerClient) GetUserTransactionHistory(ctx context.Contex
 	// Validate the user
 	_, err := tm.storageClient.UserRepository.FindByID(ctx, userID)
 	if err != nil {
-		return nil, err
+		return []Transaction{}, err
 	}
 
 	transactionResult, err := tm.storageClient.TransactionRepository.GetUserTransactionHistory(ctx, userID, page, pageSize)
 	if err != nil {
-		return nil, err
+		return []Transaction{}, err
 	}
 
-	transactions := make([]Transaction, len(transactionResult))
-	for i, transaction := range transactionResult {
-		transactions[i] = Transaction{
+	transactions := []Transaction{}
+	for _, transaction := range transactionResult {
+		transactions = append(transactions, Transaction{
 			ID:        transaction.ID,
 			Amount:    transaction.Amount,
 			UserID:    transaction.UserID,
 			CreatedAt: transaction.CreatedAt,
-		}
+		})
 	}
 	return transactions, nil
+}
+
+func (tm *TransactionManagerClient) IsUserValid(ctx context.Context, userID uuid.UUID) (bool, error) {
+	user, err := tm.storageClient.UserRepository.FindByID(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+
+	return user.ID != uuid.Nil, nil
 }

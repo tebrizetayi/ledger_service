@@ -10,13 +10,45 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestAddTransaction_NotValidAmount(t *testing.T) {
+
+	// Assign
+	testEnv, err := utils.CreateTestEnv()
+	if err != nil {
+		t.Fatalf("failed to create test env: %v", err)
+	}
+	defer testEnv.Cleanup()
+
+	storageClient := storage.NewStorageClient(testEnv.DB)
+	transactionManager := NewTransactionManagerClient(storageClient)
+
+	user := storage.User{
+		ID:       uuid.New(),
+		Username: "test",
+	}
+	err = transactionManager.storageClient.UserRepository.Add(testEnv.Context, user)
+	if err != nil {
+		t.Fatalf("failed to add user: %v", err)
+	}
+
+	// Act
+	_, err = transactionManager.AddTransaction(testEnv.Context, Transaction{
+		ID:     uuid.New(),
+		Amount: 0,
+		UserID: user.ID,
+	})
+
+	// Assert
+	assert.Equal(t, ErrInvalidTransaction, err)
+}
+
 func TestAddTransaction_Success(t *testing.T) {
 	// Assign
 	testEnv, err := utils.CreateTestEnv()
 	if err != nil {
 		t.Fatalf("failed to create test env: %v", err)
 	}
-	defer utils.CleanUpTestEnv(&testEnv)
+	defer testEnv.Cleanup()
 
 	storageClient := storage.NewStorageClient(testEnv.DB)
 	transactionManager := NewTransactionManagerClient(storageClient)
@@ -43,35 +75,4 @@ func TestAddTransaction_Success(t *testing.T) {
 	// Assert
 	assert.Equal(t, 100.0, transaction.Amount)
 	assert.Equal(t, user.ID, transaction.UserID)
-}
-
-func TestAddTransaction_NotValidAmount(t *testing.T) {
-	// Assign
-	testEnv, err := utils.CreateTestEnv()
-	if err != nil {
-		t.Fatalf("failed to create test env: %v", err)
-	}
-	defer utils.CleanUpTestEnv(&testEnv)
-
-	storageClient := storage.NewStorageClient(testEnv.DB)
-	transactionManager := NewTransactionManagerClient(storageClient)
-
-	user := storage.User{
-		ID:       uuid.New(),
-		Username: "test",
-	}
-	err = transactionManager.storageClient.UserRepository.Add(testEnv.Context, user)
-	if err != nil {
-		t.Fatalf("failed to add user: %v", err)
-	}
-
-	// Act
-	_, err = transactionManager.AddTransaction(testEnv.Context, Transaction{
-		ID:     uuid.New(),
-		Amount: 0,
-		UserID: user.ID,
-	})
-
-	// Assert
-	assert.Equal(t, ErrInvalidTransaction, err)
 }

@@ -16,6 +16,7 @@ func TestAddTransaction_SingleTransaction_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create env: %v", err)
 	}
+	defer testEnv.Cleanup()
 
 	transactionRepository := NewTransactionRepository(testEnv.DB)
 	userRepository := NewUserRepository(testEnv.DB)
@@ -58,6 +59,7 @@ func TestAddTransaction_MultipleTransaction_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create env: %v", err)
 	}
+	defer testEnv.Cleanup()
 
 	transactionRepository := NewTransactionRepository(testEnv.DB)
 	userRepository := NewUserRepository(testEnv.DB)
@@ -102,6 +104,7 @@ func TestAddTransaction_AlreadyExistingTransaction_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create env: %v", err)
 	}
+	defer testEnv.Cleanup()
 
 	transactionRepository := NewTransactionRepository(testEnv.DB)
 
@@ -151,6 +154,7 @@ func TestGetUserTransactionHistory_SingleTransaction_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create env: %v", err)
 	}
+	defer testEnv.Cleanup()
 
 	transactionRepository := NewTransactionRepository(testEnv.DB)
 	userRepository := NewUserRepository(testEnv.DB)
@@ -198,6 +202,7 @@ func TestGetUserTransactionHistory_MultipleTransaction_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create env: %v", err)
 	}
+	defer testEnv.Cleanup()
 
 	transactionRepository := NewTransactionRepository(testEnv.DB)
 	userRepository := NewUserRepository(testEnv.DB)
@@ -261,6 +266,7 @@ func TestGetUserTransactionHistory_MultipleTransactionAndMultipleUser_Success(t 
 	if err != nil {
 		t.Fatalf("failed to create env: %v", err)
 	}
+	defer testEnv.Cleanup()
 
 	transactionRepository := NewTransactionRepository(testEnv.DB)
 	userRepository := NewUserRepository(testEnv.DB)
@@ -364,6 +370,7 @@ func TestGetUserBalance_MultiTransactionAndMultiUser_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create env: %v", err)
 	}
+	defer testEnv.Cleanup()
 
 	transactionRepository := NewTransactionRepository(testEnv.DB)
 	userRepository := NewUserRepository(testEnv.DB)
@@ -437,6 +444,7 @@ func TestGetUserBalance_EmptyHistory_Error(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create env: %v", err)
 	}
+	defer testEnv.Cleanup()
 
 	transactionRepository := NewTransactionRepository(testEnv.DB)
 

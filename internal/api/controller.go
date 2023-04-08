@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/tebrizetayi/ledger_service/internal/transaction_manager"
 
@@ -42,14 +42,12 @@ func (c *Controller) GetUserBalance(w http.ResponseWriter, r *http.Request) {
 	userID, err := uuid.Parse(vars["uid"])
 	if err != nil {
 		httpError(w, fmt.Sprintf("Invalid user ID %s", err), http.StatusBadRequest)
-		log.Println(err)
 		return
 	}
 
 	balance, err := c.transaction_manager.GetUserBalance(ctx, userID)
 	if err != nil {
 		httpError(w, fmt.Sprintf("Error retrieving user balance %v", err), http.StatusInternalServerError)
-		log.Println(err)
 		return
 	}
 
@@ -67,8 +65,10 @@ func (c *Controller) AddTransaction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	transaction := transaction_manager.Transaction{
-		UserID: addTransactionRequest.UserID,
-		Amount: addTransactionRequest.Amount,
+		UserID:    addTransactionRequest.UserID,
+		Amount:    addTransactionRequest.Amount,
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
 	}
 
 	ctx := r.Context()
@@ -86,10 +86,12 @@ func (c *Controller) AddTransaction(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) GetUserTransactionHistory(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	vars := mux.Vars(r)
 	userID, err := uuid.Parse(vars["uid"])
 	if err != nil {
-		httpError(w, "Invalid user ID", http.StatusBadRequest)
+		httpError(w, fmt.Sprintf("Invalid user ID %v", err), http.StatusBadRequest)
 		return
 	}
 
@@ -102,7 +104,6 @@ func (c *Controller) GetUserTransactionHistory(w http.ResponseWriter, r *http.Re
 		pageSize = 10
 	}
 
-	ctx := r.Context()
 	transactions, err := c.transaction_manager.GetUserTransactionHistory(ctx, userID, page, pageSize)
 	if err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)

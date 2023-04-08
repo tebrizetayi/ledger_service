@@ -50,7 +50,7 @@ func (t *TransactionRepository) AddTransaction(ctx context.Context, transaction 
 
 	var transactionID uuid.UUID
 	var createdAt time.Time
-	err = tx.QueryRowContext(ctx, `INSERT INTO transactions (id,user_id, amount, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id, created_at`, transaction.ID, transaction.UserID, transaction.Amount).Scan(&transactionID, &createdAt)
+	err = tx.QueryRowContext(ctx, `INSERT INTO transactions (id,user_id, amount, created_at) VALUES ($1, $2, $3, $4) RETURNING id, created_at`, transaction.ID, transaction.UserID, transaction.Amount, transaction.CreatedAt).Scan(&transactionID, &createdAt)
 	if err != nil {
 		tx.Rollback()
 		return Transaction{}, err

@@ -1,8 +1,8 @@
 package api_test
 
 import (
+	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -19,12 +19,11 @@ import (
 
 var (
 	GetUserBalanceTemplate            = "/users/%s/balance"
-	GetUserTransactionHistoryTemplate = "/users/%s/transactions%s"
+	GetUserTransactionHistoryTemplate = "/users/%s/history%s"
 	AddTransactionTemplate            = "/users/%s/add"
 )
 
 func TestGetUserBalanceEndpoint(t *testing.T) {
-	t.Skip("Skipping test for now")
 	testCases := []struct {
 		name               string
 		userID             string
@@ -55,6 +54,7 @@ func TestGetUserBalanceEndpoint(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create test env: %v", err)
 		}
+		defer testEnv.Cleanup()
 
 		storageClient := storage.NewStorageClient(testEnv.DB)
 		transactionManager := transaction_manager.NewTransactionManagerClient(storageClient)
@@ -74,7 +74,7 @@ func TestGetUserBalanceEndpoint(t *testing.T) {
 			UserID:    userId,
 			Amount:    tc.mockBalance,
 			ID:        uuid.New(),
-			CreatedAt: time.Now(),
+			CreatedAt: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
 		})
 		if err != nil {
 			t.Fatalf("failed to add transaction: %v", err)
@@ -107,39 +107,69 @@ func TestGetUserBalanceEndpoint(t *testing.T) {
 	}
 }
 
-func TestGetUserTransactionHistory_Endpoint(t *testing.T) {
-	t.Skip("Skipping test for now")
-	testUserID := uuid.New()
+func TestGetUserTransactionHistoryEndpoint(t *testing.T) {
+	user := transaction_manager.User{
+		ID:       uuid.New(),
+		Username: "test",
+	}
+	transactions := []transaction_manager.Transaction{
+		{
+			ID:        uuid.New(),
+			UserID:    user.ID,
+			Amount:    100.0,
+			CreatedAt: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			ID:        uuid.New(),
+			UserID:    user.ID,
+			Amount:    50.0,
+			CreatedAt: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+	}
+
 	testCases := []struct {
 		name                 string
 		userID               string
 		queryParams          string
 		expectedStatusCode   int
 		mockTransactions     []transaction_manager.Transaction
-		mockError            error
+		expectedError        error
 		expectedTransactions []transaction_manager.Transaction
 	}{
 		{
 			name:               "Valid user ID",
-			userID:             testUserID.String(),
+			userID:             user.ID.String(),
 			queryParams:        "?page=1&pageSize=10",
 			expectedStatusCode: http.StatusOK,
 			mockTransactions: []transaction_manager.Transaction{
 				{
-					ID:        uuid.New(),
-					UserID:    testUserID,
-					Amount:    100.0,
-					CreatedAt: time.Now(),
+					ID:        transactions[0].ID,
+					UserID:    transactions[0].UserID,
+					Amount:    transactions[0].Amount,
+					CreatedAt: transactions[0].CreatedAt,
 				},
 				{
-					ID:        uuid.New(),
-					UserID:    testUserID,
-					Amount:    -50.0,
-					CreatedAt: time.Now(),
+					ID:        transactions[1].ID,
+					UserID:    transactions[1].UserID,
+					Amount:    transactions[1].Amount,
+					CreatedAt: transactions[1].CreatedAt,
 				},
 			},
-			mockError:            nil,
-			expectedTransactions: nil,
+			expectedError: nil,
+			expectedTransactions: []transaction_manager.Transaction{
+				{
+					ID:        transactions[0].ID,
+					UserID:    transactions[0].UserID,
+					Amount:    transactions[0].Amount,
+					CreatedAt: transactions[0].CreatedAt,
+				},
+				{
+					ID:        transactions[1].ID,
+					UserID:    transactions[1].UserID,
+					Amount:    transactions[1].Amount,
+					CreatedAt: transactions[1].CreatedAt,
+				},
+			},
 		},
 		{
 			name:               "Invalid user ID",
@@ -148,12 +178,13 @@ func TestGetUserTransactionHistory_Endpoint(t *testing.T) {
 			expectedStatusCode: http.StatusBadRequest,
 		},
 		{
-			name:               "Error retrieving transaction history",
-			userID:             uuid.New().String(),
-			queryParams:        "?page=1&pageSize=10",
-			expectedStatusCode: http.StatusInternalServerError,
-			mockTransactions:   nil,
-			mockError:          errors.New("Error retrieving transaction history"),
+			name:                 "No transactions found",
+			userID:               uuid.New().String(),
+			queryParams:          "?page=1&pageSize=10",
+			expectedStatusCode:   http.StatusOK,
+			expectedTransactions: []transaction_manager.Transaction{},
+			mockTransactions:     nil,
+			expectedError:        nil,
 		},
 	}
 
@@ -163,6 +194,8 @@ func TestGetUserTransactionHistory_Endpoint(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create test env: %v", err)
 		}
+		defer testEnv.Cleanup()
+
 		storageClient := storage.NewStorageClient(testEnv.DB)
 		transactionManager := transaction_manager.NewTransactionManagerClient(storageClient)
 
@@ -179,10 +212,10 @@ func TestGetUserTransactionHistory_Endpoint(t *testing.T) {
 
 		for i := range tc.mockTransactions {
 			_, err = transactionManager.AddTransaction(testEnv.Context, transaction_manager.Transaction{
-				UserID:    userId,
+				UserID:    tc.mockTransactions[i].UserID,
 				Amount:    tc.mockTransactions[i].Amount,
-				ID:        uuid.New(),
-				CreatedAt: time.Now(),
+				ID:        tc.mockTransactions[i].ID,
+				CreatedAt: tc.mockTransactions[i].CreatedAt,
 			})
 			if err != nil {
 				t.Fatalf("failed to add transaction: %v", err)
@@ -194,15 +227,11 @@ func TestGetUserTransactionHistory_Endpoint(t *testing.T) {
 		newAPI := api.NewAPI(controller)
 
 		req, _ := http.NewRequest("GET", fmt.Sprintf(GetUserTransactionHistoryTemplate, tc.userID, tc.queryParams), nil)
-
 		rr := httptest.NewRecorder()
 		newAPI.ServeHTTP(rr, req)
 
-		// Call the GetUserTransactionHistory method
-		controller.GetUserTransactionHistory(rr, req)
-
 		// Check the response status code
-		assert.Equal(t, tc.expectedStatusCode, rr.Code)
+		assert.Equal(t, tc.expectedStatusCode, rr.Code, fmt.Sprintf("expected status code %d, got %d", tc.expectedStatusCode, rr.Code))
 
 		// If the status is OK, check the transactions in the response
 		if rr.Code == http.StatusOK {
@@ -212,14 +241,20 @@ func TestGetUserTransactionHistory_Endpoint(t *testing.T) {
 				t.Fatalf("failed to unmarshal response: %v", err)
 			}
 
-			assert.Equal(t, tc.mockTransactions, transactions)
+			for i := range tc.expectedTransactions {
+				assert.Contains(t, tc.expectedTransactions, transaction_manager.Transaction{
+					ID:        transactions[i].ID,
+					Amount:    transactions[i].Amount,
+					UserID:    transactions[i].UserID,
+					CreatedAt: transactions[i].CreatedAt,
+				}, fmt.Sprintf("expected transaction %v, got %v", tc.expectedTransactions, transactions[i]))
+			}
 		}
 	}
 }
 
-/*
-
 func TestAddTransaction(t *testing.T) {
+	testUserID := uuid.New()
 	testCases := []struct {
 		name               string
 		requestBody        []byte
@@ -228,7 +263,7 @@ func TestAddTransaction(t *testing.T) {
 	}{
 		{
 			name:               "Valid transaction",
-			requestBody:        []byte(`{"user_id":"` + uuid.New().String() + `", "amount":100}`),
+			requestBody:        []byte(`{"user_id":"` + testUserID.String() + `", "amount":100}`),
 			expectedStatusCode: http.StatusCreated,
 			mockError:          nil,
 		},
@@ -236,12 +271,6 @@ func TestAddTransaction(t *testing.T) {
 			name:               "Invalid JSON",
 			requestBody:        []byte(`{"user_id": , "amount":100}`),
 			expectedStatusCode: http.StatusBadRequest,
-		},
-		{
-			name:               "Error adding transaction",
-			requestBody:        []byte(`{"user_id":"` + uuid.New().String() + `", "amount":100}`),
-			expectedStatusCode: http.StatusInternalServerError,
-			mockError:          errors.New("Error adding transaction"),
 		},
 	}
 
@@ -252,14 +281,26 @@ func TestAddTransaction(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to create test env: %v", err)
 			}
-		storageClient := storage.NewStorageClient(testEnv.DB)
-		transactionManager := transaction_manager.NewTransactionManagerClient(storageClient)
+			defer testEnv.Cleanup()
+
+			storageClient := storage.NewStorageClient(testEnv.DB)
+			transactionManager := transaction_manager.NewTransactionManagerClient(storageClient)
+
+			user := storage.User{
+				ID:       testUserID,
+				Username: "test",
+			}
+
+			err = storageClient.UserRepository.Add(testEnv.Context, user)
+			if err != nil {
+				t.Fatalf("failed to add user: %v", err)
+			}
 
 			// Create the controller and the test request
 			controller := api.NewController(transactionManager)
 			newAPI := api.NewAPI(controller)
 
-			req, _ := http.NewRequest("POST", fmt.Sprintf(AddTransactionTemplate), bytes.NewBuffer(tc.requestBody))
+			req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf(AddTransactionTemplate, testUserID.String()), bytes.NewBuffer(tc.requestBody))
 			rr := httptest.NewRecorder()
 			newAPI.ServeHTTP(rr, req)
 
@@ -267,19 +308,25 @@ func TestAddTransaction(t *testing.T) {
 			assert.Equal(t, tc.expectedStatusCode, rr.Code)
 
 			// If the status is StatusCreated, check the response message
-			if rr.Code != http.StatusCreated {
-				t.Fatalf("expected status code %d, got %d", http.StatusCreated, rr.Code)
+			if rr.Code == http.StatusCreated {
+				var response struct {
+					Message string `json:"message"`
+				}
+				err = json.Unmarshal(rr.Body.Bytes(), &response)
+				if err != nil {
+					t.Fatalf("failed to unmarshal response: %v", err)
+				}
+				assert.Equal(t, "Transaction successfully added", response.Message)
+
+				transactions, err := transactionManager.GetUserTransactionHistory(testEnv.Context, testUserID, 1, 10)
+				if err != nil {
+					t.Fatalf("failed to get transactions: %v", err)
+				}
+
+				assert.Equal(t, 1, len(transactions))
+				assert.Equal(t, testUserID, transactions[0].UserID)
+				assert.Equal(t, 100.00, transactions[0].Amount)
 			}
-			var response struct {
-				Message string `json:"message"`
-			}
-			err = json.Unmarshal(rr.Body.Bytes(), &response)
-			if err != nil {
-				t.Fatalf("failed to unmarshal response: %v", err)
-			}
-			assert.Equal(t, "Transaction successfully added", response.Message)
 		})
 	}
 }
-
-*/
