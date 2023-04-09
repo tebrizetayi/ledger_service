@@ -7,6 +7,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/lib/pq v1.10.7
 	github.com/ory/dockertest/v3 v3.9.1
+	github.com/shopspring/decimal v1.3.1
 	github.com/stretchr/testify v1.8.2
 )
 

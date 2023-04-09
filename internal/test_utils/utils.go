@@ -102,7 +102,7 @@ func CreateTestDB(ctx context.Context) (*sql.DB, func(), error) {
 	// Load and execute the SQL script to create the required tables
 	script := `CREATE TABLE IF NOT EXISTS  users (
 		id UUID PRIMARY KEY,
-		username TEXT NOT NULL
+		balance DOUBLE PRECISION NOT NULL
 	);
 	
 	CREATE TABLE IF NOT EXISTS  transactions (

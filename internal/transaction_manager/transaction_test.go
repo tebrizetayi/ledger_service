@@ -3,6 +3,7 @@ package transaction_manager
 import (
 	"testing"
 
+	"github.com/shopspring/decimal"
 	"github.com/tebrizetayi/ledger_service/internal/storage"
 	utils "github.com/tebrizetayi/ledger_service/internal/test_utils"
 
@@ -23,8 +24,8 @@ func TestAddTransaction_NotValidAmount(t *testing.T) {
 	transactionManager := NewTransactionManagerClient(storageClient)
 
 	user := storage.User{
-		ID:       uuid.New(),
-		Username: "test",
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(0),
 	}
 	err = transactionManager.storageClient.UserRepository.Add(testEnv.Context, user)
 	if err != nil {
@@ -34,7 +35,7 @@ func TestAddTransaction_NotValidAmount(t *testing.T) {
 	// Act
 	_, err = transactionManager.AddTransaction(testEnv.Context, Transaction{
 		ID:     uuid.New(),
-		Amount: 0,
+		Amount: decimal.NewFromFloat(0),
 		UserID: user.ID,
 	})
 
@@ -54,8 +55,8 @@ func TestAddTransaction_Success(t *testing.T) {
 	transactionManager := NewTransactionManagerClient(storageClient)
 
 	user := storage.User{
-		ID:       uuid.New(),
-		Username: "test",
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(0),
 	}
 	err = transactionManager.storageClient.UserRepository.Add(testEnv.Context, user)
 	if err != nil {
@@ -65,7 +66,7 @@ func TestAddTransaction_Success(t *testing.T) {
 	// Act
 	transaction, err := transactionManager.AddTransaction(testEnv.Context, Transaction{
 		ID:     uuid.New(),
-		Amount: 100,
+		Amount: decimal.NewFromFloat(100),
 		UserID: user.ID,
 	})
 	if err != nil {
@@ -73,6 +74,7 @@ func TestAddTransaction_Success(t *testing.T) {
 	}
 
 	// Assert
-	assert.Equal(t, 100.0, transaction.Amount)
+	actualAmount, _ := transaction.Amount.Float64()
+	assert.Equal(t, 100.0, actualAmount, "amount should be 100.0")
 	assert.Equal(t, user.ID, transaction.UserID)
 }

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/tebrizetayi/ledger_service/internal/api"
 	"github.com/tebrizetayi/ledger_service/internal/storage"
@@ -61,8 +62,8 @@ func TestGetUserBalanceEndpoint(t *testing.T) {
 
 		userId, _ := uuid.Parse(tc.userID)
 		user := storage.User{
-			ID:       userId,
-			Username: "test",
+			ID:      userId,
+			Balance: decimal.NewFromFloat(0),
 		}
 
 		err = storageClient.UserRepository.Add(testEnv.Context, user)
@@ -72,7 +73,7 @@ func TestGetUserBalanceEndpoint(t *testing.T) {
 
 		_, err = transactionManager.AddTransaction(testEnv.Context, transaction_manager.Transaction{
 			UserID:    userId,
-			Amount:    tc.mockBalance,
+			Amount:    decimal.NewFromFloat(tc.mockBalance),
 			ID:        uuid.New(),
 			CreatedAt: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
 		})
@@ -109,20 +110,20 @@ func TestGetUserBalanceEndpoint(t *testing.T) {
 
 func TestGetUserTransactionHistoryEndpoint(t *testing.T) {
 	user := transaction_manager.User{
-		ID:       uuid.New(),
-		Username: "test",
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(0),
 	}
 	transactions := []transaction_manager.Transaction{
 		{
 			ID:        uuid.New(),
 			UserID:    user.ID,
-			Amount:    100.0,
+			Amount:    decimal.NewFromFloat(100),
 			CreatedAt: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
 		{
 			ID:        uuid.New(),
 			UserID:    user.ID,
-			Amount:    50.0,
+			Amount:    decimal.NewFromFloat(50),
 			CreatedAt: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
 	}
@@ -201,8 +202,8 @@ func TestGetUserTransactionHistoryEndpoint(t *testing.T) {
 
 		userId, _ := uuid.Parse(tc.userID)
 		user := storage.User{
-			ID:       userId,
-			Username: "test",
+			ID:      userId,
+			Balance: decimal.NewFromFloat(0),
 		}
 
 		err = storageClient.UserRepository.Add(testEnv.Context, user)
@@ -287,8 +288,8 @@ func TestAddTransaction(t *testing.T) {
 			transactionManager := transaction_manager.NewTransactionManagerClient(storageClient)
 
 			user := storage.User{
-				ID:       testUserID,
-				Username: "test",
+				ID:      testUserID,
+				Balance: decimal.NewFromFloat(0),
 			}
 
 			err = storageClient.UserRepository.Add(testEnv.Context, user)

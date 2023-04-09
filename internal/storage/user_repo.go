@@ -3,13 +3,15 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type User struct {
-	ID       uuid.UUID
-	Username string
+	ID      uuid.UUID
+	Balance decimal.Decimal
 }
 
 type UserRepository struct {
@@ -20,17 +22,25 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 	return &UserRepository{db}
 }
 
+var ErrUserNotFound = errors.New("user not found")
+
 func (r *UserRepository) FindByID(ctx context.Context, id uuid.UUID) (User, error) {
-	var u User
-	err := r.db.QueryRowContext(ctx, "SELECT id, username FROM users WHERE id = $1", id).Scan(&u.ID, &u.Username)
+	var user User
+	err := r.db.QueryRowContext(ctx, "SELECT id, balance FROM users WHERE id = $1", id).Scan(&user.ID, &user.Balance)
+
+	if err == sql.ErrNoRows {
+		return User{}, ErrUserNotFound
+	}
+
 	if err != nil {
 		return User{}, err
 	}
-	return u, nil
+
+	return user, nil
 }
 
 func (r *UserRepository) Add(ctx context.Context, u User) error {
-	_, err := r.db.ExecContext(ctx, "INSERT INTO users (id, username) VALUES ($1, $2)", u.ID, u.Username)
+	_, err := r.db.ExecContext(ctx, "INSERT INTO users (id, balance) VALUES ($1, $2)", u.ID, u.Balance)
 	if err != nil {
 		return err
 	}

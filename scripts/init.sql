@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS  users (
     id UUID PRIMARY KEY,
-    username TEXT NOT NULL
+    balance DOUBLE PRECISION NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS  transactions (

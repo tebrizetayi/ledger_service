@@ -2,8 +2,8 @@ package transaction_manager
 
 import (
 	"errors"
-	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/tebrizetayi/ledger_service/internal/storage"
 
 	"context"
@@ -14,21 +14,6 @@ import (
 var (
 	ErrInvalidTransaction = errors.New("invalid transaction")
 )
-
-type Storage interface {
-	storage.StorageClient
-}
-
-type TransactionManagerClient struct {
-	storageClient storage.StorageClient
-}
-
-type Transaction struct {
-	ID        uuid.UUID `json:"id"`
-	Amount    float64   `json:"amount"`
-	UserID    uuid.UUID `json:"user_id"`
-	CreatedAt time.Time `json:"created_at"`
-}
 
 func NewTransactionManagerClient(storage storage.StorageClient) *TransactionManagerClient {
 	return &TransactionManagerClient{
@@ -56,22 +41,16 @@ func (tm *TransactionManagerClient) AddTransaction(ctx context.Context, transact
 
 func (tm *TransactionManagerClient) ValidateTransaction(ctx context.Context, transaction Transaction) bool {
 	// Validate the transaction
-	return transaction.Amount > 0.00
+	return transaction.Amount.IsPositive()
 }
 
-func (tm *TransactionManagerClient) GetUserBalance(ctx context.Context, userID uuid.UUID) (float64, error) {
-	// Validate the user
-	_, err := tm.storageClient.UserRepository.FindByID(ctx, userID)
+func (tm *TransactionManagerClient) GetUserBalance(ctx context.Context, userID uuid.UUID) (decimal.Decimal, error) {
+	user, err := tm.storageClient.UserRepository.FindByID(ctx, userID)
 	if err != nil {
-		return 0, err
+		return decimal.NewFromFloat(0), err
 	}
 
-	balance, err := tm.storageClient.TransactionRepository.FindUserBalance(ctx, userID)
-	if err != nil {
-		return 0, err
-	}
-
-	return balance, nil
+	return user.Balance, nil
 }
 
 func (tm *TransactionManagerClient) GetUserTransactionHistory(ctx context.Context, userID uuid.UUID, page int, pageSize int) ([]Transaction, error) {

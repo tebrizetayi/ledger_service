@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/shopspring/decimal"
 	utils "github.com/tebrizetayi/ledger_service/internal/test_utils"
 
 	"github.com/google/uuid"
@@ -22,8 +23,8 @@ func TestAddTransaction_SingleTransaction_Success(t *testing.T) {
 	userRepository := NewUserRepository(testEnv.DB)
 
 	user := User{
-		ID:       uuid.New(),
-		Username: "test",
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(0),
 	}
 
 	err = userRepository.Add(testEnv.Context, user)
@@ -39,18 +40,19 @@ func TestAddTransaction_SingleTransaction_Success(t *testing.T) {
 	createTransactions(testEnv, transactionRepository, []Transaction{
 		{
 			UserID: user.ID,
-			Amount: 100,
+			Amount: decimal.NewFromFloat(100),
 			ID:     id,
 		},
 	})
 
-	userBalance, err := transactionRepository.FindUserBalance(testEnv.Context, userId)
+	actualUser, err := userRepository.FindByID(testEnv.Context, userId)
 	if err != nil {
 		t.Fatalf("failed to get user balance: %v", err)
 	}
 
 	// Assert
-	assert.Equal(t, expectedBalance, userBalance, fmt.Sprintf("user balance should be %f", expectedBalance))
+	actualUserBalance, _ := actualUser.Balance.Float64()
+	assert.Equal(t, expectedBalance, actualUserBalance, fmt.Sprintf("user balance should be %f actual %f", expectedBalance, actualUserBalance))
 }
 
 func TestAddTransaction_MultipleTransaction_Success(t *testing.T) {
@@ -64,8 +66,8 @@ func TestAddTransaction_MultipleTransaction_Success(t *testing.T) {
 	transactionRepository := NewTransactionRepository(testEnv.DB)
 	userRepository := NewUserRepository(testEnv.DB)
 	user := User{
-		ID:       uuid.New(),
-		Username: "test",
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(0),
 	}
 
 	err = userRepository.Add(testEnv.Context, user)
@@ -79,23 +81,24 @@ func TestAddTransaction_MultipleTransaction_Success(t *testing.T) {
 	createTransactions(testEnv, transactionRepository, []Transaction{
 		{
 			UserID: userId,
-			Amount: 100,
+			Amount: decimal.NewFromFloat(100),
 			ID:     uuid.New(),
 		},
 		{
 			UserID: userId,
-			Amount: 200,
+			Amount: decimal.NewFromFloat(200),
 			ID:     uuid.New(),
 		},
 	})
 
-	userBalance, err := transactionRepository.FindUserBalance(testEnv.Context, userId)
+	actualUser, err := userRepository.FindByID(testEnv.Context, userId)
 	if err != nil {
 		t.Fatalf("failed to get user balance: %v", err)
 	}
 
 	// Assert
-	assert.Equal(t, userBalance, expectedBalance, fmt.Sprintf("user balance should be %f actual %f", expectedBalance, userBalance))
+	actualUserBalance, _ := actualUser.Balance.Float64()
+	assert.Equal(t, expectedBalance, actualUserBalance, fmt.Sprintf("user balance should be %f actual %f", expectedBalance, actualUserBalance))
 }
 
 func TestAddTransaction_AlreadyExistingTransaction_Success(t *testing.T) {
@@ -110,8 +113,8 @@ func TestAddTransaction_AlreadyExistingTransaction_Success(t *testing.T) {
 
 	userRepository := NewUserRepository(testEnv.DB)
 	user := User{
-		ID:       uuid.New(),
-		Username: "test",
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(0),
 	}
 
 	err = userRepository.Add(testEnv.Context, user)
@@ -119,33 +122,22 @@ func TestAddTransaction_AlreadyExistingTransaction_Success(t *testing.T) {
 		t.Fatalf("failed to add user: %v", err)
 	}
 	userId := user.ID
-	expectedBalance := 100.00
 	transactionID := uuid.New()
 	// Act
 	createTransactions(testEnv, transactionRepository, []Transaction{
 		{
 			UserID: userId,
-			Amount: 100,
+			Amount: decimal.NewFromFloat(100),
 			ID:     transactionID,
 		},
 	})
 
 	_, err = transactionRepository.AddTransaction(testEnv.Context, Transaction{
 		UserID: userId,
-		Amount: 100,
+		Amount: decimal.NewFromFloat(100),
 		ID:     transactionID,
 	})
-	if err != nil {
-		t.Fatalf("failed to get user balance: %v", err)
-	}
-
-	userBalance, err := transactionRepository.FindUserBalance(testEnv.Context, userId)
-	if err != nil {
-		t.Fatalf("failed to get user balance: %v", err)
-	}
-
-	// Assert
-	assert.Equal(t, userBalance, expectedBalance, fmt.Sprintf("user balance should be %f actual %f", expectedBalance, userBalance))
+	assert.Error(t, err, "should return error when adding transaction with existing id")
 }
 
 func TestGetUserTransactionHistory_SingleTransaction_Success(t *testing.T) {
@@ -160,8 +152,8 @@ func TestGetUserTransactionHistory_SingleTransaction_Success(t *testing.T) {
 	userRepository := NewUserRepository(testEnv.DB)
 
 	user := User{
-		ID:       uuid.New(),
-		Username: "test",
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(0),
 	}
 
 	err = userRepository.Add(testEnv.Context, user)
@@ -172,7 +164,7 @@ func TestGetUserTransactionHistory_SingleTransaction_Success(t *testing.T) {
 	expectedTransactions := []Transaction{
 		{
 			UserID: userId,
-			Amount: 100,
+			Amount: decimal.NewFromFloat(100),
 			ID:     uuid.New(),
 		}}
 
@@ -180,7 +172,7 @@ func TestGetUserTransactionHistory_SingleTransaction_Success(t *testing.T) {
 	createTransactions(testEnv, transactionRepository, []Transaction{
 		{
 			UserID: userId,
-			Amount: 100,
+			Amount: decimal.NewFromFloat(100),
 			ID:     uuid.New(),
 		},
 	})
@@ -192,7 +184,7 @@ func TestGetUserTransactionHistory_SingleTransaction_Success(t *testing.T) {
 
 	// Assert
 	assert.Equal(t, len(expectedTransactions), len(actualTransactions), fmt.Sprintf("expected transaction count %v actual %v", len(expectedTransactions), len(actualTransactions)))
-	assert.Equal(t, expectedTransactions[0].Amount, actualTransactions[0].Amount, fmt.Sprintf("expected transaction amount %f actual %f", expectedTransactions[0].Amount, actualTransactions[0].Amount))
+	assert.Equal(t, expectedTransactions[0].Amount, actualTransactions[0].Amount, fmt.Sprintf("expected transaction amount %v actual %v", expectedTransactions[0].Amount, actualTransactions[0].Amount))
 	assert.Equal(t, expectedTransactions[0].UserID, actualTransactions[0].UserID, fmt.Sprintf("expected transaction user id, %d actual %d", expectedTransactions[0].UserID, actualTransactions[0].UserID))
 }
 
@@ -207,8 +199,8 @@ func TestGetUserTransactionHistory_MultipleTransaction_Success(t *testing.T) {
 	transactionRepository := NewTransactionRepository(testEnv.DB)
 	userRepository := NewUserRepository(testEnv.DB)
 	user := User{
-		ID:       uuid.New(),
-		Username: "test",
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(0),
 	}
 
 	err = userRepository.Add(testEnv.Context, user)
@@ -223,12 +215,12 @@ func TestGetUserTransactionHistory_MultipleTransaction_Success(t *testing.T) {
 	expectedTransactions := []Transaction{
 		{
 			UserID: userId,
-			Amount: 100,
+			Amount: decimal.NewFromFloat(100),
 			ID:     transactionID1,
 		},
 		{
 			UserID: userId,
-			Amount: 300,
+			Amount: decimal.NewFromFloat(300),
 			ID:     transactionID2,
 		}}
 
@@ -236,12 +228,12 @@ func TestGetUserTransactionHistory_MultipleTransaction_Success(t *testing.T) {
 	createTransactions(testEnv, transactionRepository, []Transaction{
 		{
 			UserID: userId,
-			Amount: 100,
+			Amount: decimal.NewFromFloat(100),
 			ID:     transactionID1,
 		},
 		{
 			UserID: userId,
-			Amount: 300,
+			Amount: decimal.NewFromFloat(300),
 			ID:     transactionID2,
 		},
 	})
@@ -271,8 +263,8 @@ func TestGetUserTransactionHistory_MultipleTransactionAndMultipleUser_Success(t 
 	transactionRepository := NewTransactionRepository(testEnv.DB)
 	userRepository := NewUserRepository(testEnv.DB)
 	user1 := User{
-		ID:       uuid.New(),
-		Username: "test",
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(0),
 	}
 
 	err = userRepository.Add(testEnv.Context, user1)
@@ -282,8 +274,8 @@ func TestGetUserTransactionHistory_MultipleTransactionAndMultipleUser_Success(t 
 	userId1 := user1.ID
 
 	user2 := User{
-		ID:       uuid.New(),
-		Username: "test",
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(0),
 	}
 
 	err = userRepository.Add(testEnv.Context, user2)
@@ -297,12 +289,12 @@ func TestGetUserTransactionHistory_MultipleTransactionAndMultipleUser_Success(t 
 	expectedTransactions1 := []Transaction{
 		{
 			UserID: userId1,
-			Amount: 100,
+			Amount: decimal.NewFromFloat(100),
 			ID:     transactionID11,
 		},
 		{
 			UserID: userId1,
-			Amount: 300,
+			Amount: decimal.NewFromFloat(300),
 			ID:     transactionID21,
 		}}
 	transactionID12 := uuid.New()
@@ -310,12 +302,12 @@ func TestGetUserTransactionHistory_MultipleTransactionAndMultipleUser_Success(t 
 	expectedTransactions2 := []Transaction{
 		{
 			UserID: userId2,
-			Amount: 800,
+			Amount: decimal.NewFromFloat(800),
 			ID:     transactionID12,
 		},
 		{
 			UserID: userId2,
-			Amount: 1000,
+			Amount: decimal.NewFromFloat(1000),
 			ID:     transactionID22,
 		},
 	}
@@ -324,22 +316,22 @@ func TestGetUserTransactionHistory_MultipleTransactionAndMultipleUser_Success(t 
 	createTransactions(testEnv, transactionRepository, []Transaction{
 		{
 			UserID: userId1,
-			Amount: 100,
+			Amount: decimal.NewFromFloat(100),
 			ID:     transactionID11,
 		},
 		{
 			UserID: userId1,
-			Amount: 300,
+			Amount: decimal.NewFromFloat(300),
 			ID:     transactionID21,
 		},
 		{
 			UserID: userId2,
-			Amount: 800,
+			Amount: decimal.NewFromFloat(800),
 			ID:     transactionID12,
 		},
 		{
 			UserID: userId2,
-			Amount: 1000,
+			Amount: decimal.NewFromFloat(1000),
 			ID:     transactionID22,
 		},
 	})
@@ -375,8 +367,8 @@ func TestGetUserBalance_MultiTransactionAndMultiUser_Success(t *testing.T) {
 	transactionRepository := NewTransactionRepository(testEnv.DB)
 	userRepository := NewUserRepository(testEnv.DB)
 	user1 := User{
-		ID:       uuid.New(),
-		Username: "test",
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(0),
 	}
 
 	err = userRepository.Add(testEnv.Context, user1)
@@ -386,8 +378,8 @@ func TestGetUserBalance_MultiTransactionAndMultiUser_Success(t *testing.T) {
 	userId1 := user1.ID
 
 	user2 := User{
-		ID:       uuid.New(),
-		Username: "test",
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(0),
 	}
 
 	err = userRepository.Add(testEnv.Context, user2)
@@ -403,42 +395,45 @@ func TestGetUserBalance_MultiTransactionAndMultiUser_Success(t *testing.T) {
 	createTransactions(testEnv, transactionRepository, []Transaction{
 		{
 			UserID: userId1,
-			Amount: 100,
+			Amount: decimal.NewFromFloat(100),
 			ID:     uuid.New(),
 		},
 		{
 			UserID: userId1,
-			Amount: 300,
+			Amount: decimal.NewFromFloat(300),
 			ID:     uuid.New(),
 		},
 		{
 			UserID: userId2,
-			Amount: 800,
+			Amount: decimal.NewFromFloat(800),
 			ID:     uuid.New(),
 		},
 		{
 			UserID: userId2,
-			Amount: 1000,
+			Amount: decimal.NewFromFloat(1000),
 			ID:     uuid.New(),
 		},
 	})
 
-	actualBalance1, err := transactionRepository.FindUserBalance(testEnv.Context, userId1)
+	actualUser1, err := userRepository.FindByID(testEnv.Context, userId1)
 	if err != nil {
 		t.Fatalf("failed to get user transaction history: %v", err)
 	}
 
-	actualBalance2, err := transactionRepository.FindUserBalance(testEnv.Context, userId2)
+	actualUser2, err := userRepository.FindByID(testEnv.Context, userId2)
 	if err != nil {
 		t.Fatalf("failed to get user transaction history: %v", err)
 	}
 
 	// Assert
-	assert.Equal(t, expectedBalance1, actualBalance1)
-	assert.Equal(t, expectedBalance2, actualBalance2)
+	actualUserBalance1, _ := actualUser1.Balance.Float64()
+	assert.Equal(t, expectedBalance1, actualUserBalance1, fmt.Sprintf("expected balance %v actual %v", expectedBalance1, actualUserBalance1))
+
+	actualUserBalance2, _ := actualUser2.Balance.Float64()
+	assert.Equal(t, expectedBalance2, actualUserBalance2, fmt.Sprintf("expected balance %v actual %v", expectedBalance2, actualUserBalance2))
 }
 
-func TestGetUserBalance_EmptyHistory_Error(t *testing.T) {
+func TestAddTransaction_InvalidUserID_Error(t *testing.T) {
 	// Assign
 	testEnv, err := utils.CreateTestEnv()
 	if err != nil {
@@ -449,33 +444,17 @@ func TestGetUserBalance_EmptyHistory_Error(t *testing.T) {
 	transactionRepository := NewTransactionRepository(testEnv.DB)
 
 	// Act
-	actualBalance, err := transactionRepository.FindUserBalance(testEnv.Context, uuid.New())
-	if err != nil {
-		t.Fatalf("failed to get user transaction history: %v", err)
-	}
+	_, err = transactionRepository.AddTransaction(testEnv.Context, Transaction{
+		UserID: uuid.New(),
+		Amount: decimal.NewFromFloat(100),
+		ID:     uuid.New(),
+	})
+
 	// Assert
-	assert.Zero(t, actualBalance)
-}
-
-func createTransactions(testEnv utils.TestEnv, transactionRepository *TransactionRepository, transactions []Transaction) error {
-	for i := range transactions {
-		_, err := transactionRepository.AddTransaction(testEnv.Context, transactions[i])
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func TestAddTransaction_InvalidUserID_Error(t *testing.T) {
-	t.Skip("not implemented")
+	assert.Equal(t, ErrUserNotFound, err, fmt.Sprintf("expected error %v actual %v", ErrUserNotFound, err))
 }
 
 func TestGetUserTransactionHistory_MultiplePages(t *testing.T) {
-	t.Skip("not implemented")
-}
-
-func TestAddTransaction_InvalidAmount_Error(t *testing.T) {
 	t.Skip("not implemented")
 }
 
@@ -497,4 +476,14 @@ func TestGetUserTransactionHistory_InvalidPageSize_Error(t *testing.T) {
 
 func TestGetUserTransactionHistory_EmptyResult_Success(t *testing.T) {
 	t.Skip("not implemented")
+}
+
+func createTransactions(testEnv utils.TestEnv, transactionRepository *TransactionRepository, transactions []Transaction) error {
+	for i := range transactions {
+		_, err := transactionRepository.AddTransaction(testEnv.Context, transactions[i])
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

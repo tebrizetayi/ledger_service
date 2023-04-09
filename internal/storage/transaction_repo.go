@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type Transaction struct {
 	ID        uuid.UUID
 	UserID    uuid.UUID
-	Amount    float64
+	Amount    decimal.Decimal
 	CreatedAt time.Time
 }
 
@@ -30,27 +31,34 @@ func (t *TransactionRepository) FindTransactionByID(ctx context.Context, transac
 }
 
 func (t *TransactionRepository) AddTransaction(ctx context.Context, transaction Transaction) (Transaction, error) {
-	var existingTransaction Transaction
-	err := t.db.QueryRowContext(ctx, `SELECT id, user_id, amount FROM transactions WHERE id = $1`, transaction.ID).Scan(&existingTransaction.ID, &existingTransaction.UserID, &existingTransaction.Amount)
-
-	if err == nil {
-		// Transaction with the same UUID already exists, return the existing one
-		return existingTransaction, nil
-	}
-
-	if err != sql.ErrNoRows {
-		// Error occurred while querying the database
-		return Transaction{}, err
-	}
-
-	tx, err := t.db.BeginTx(ctx, nil)
+	tx, err := t.db.Begin()
 	if err != nil {
 		return Transaction{}, err
 	}
 
-	var transactionID uuid.UUID
-	var createdAt time.Time
-	err = tx.QueryRowContext(ctx, `INSERT INTO transactions (id,user_id, amount, created_at) VALUES ($1, $2, $3, $4) RETURNING id, created_at`, transaction.ID, transaction.UserID, transaction.Amount, transaction.CreatedAt).Scan(&transactionID, &createdAt)
+	// Lock the user row using SELECT FOR UPDATE
+	var currentBalance float64
+	err = tx.QueryRow("SELECT balance FROM users WHERE id = $1 FOR UPDATE", transaction.UserID).Scan(&currentBalance)
+	if err == sql.ErrNoRows {
+		tx.Rollback()
+		return Transaction{}, ErrUserNotFound
+	}
+
+	if err != nil {
+		tx.Rollback()
+		return Transaction{}, err
+	}
+
+	// Insert the transaction
+	err = tx.QueryRowContext(ctx, `INSERT INTO transactions (id, user_id, amount, created_at) VALUES ($1, $2, $3, $4) RETURNING id, created_at`, transaction.ID, transaction.UserID, transaction.Amount, transaction.CreatedAt).Scan(&transaction.ID, &transaction.CreatedAt)
+	if err != nil {
+		tx.Rollback()
+		return Transaction{}, err
+	}
+
+	// Update the user's balance
+	newBalance := decimal.NewFromFloat(currentBalance).Add(transaction.Amount)
+	_, err = tx.Exec("UPDATE users SET balance = $1 WHERE id = $2", newBalance, transaction.UserID)
 	if err != nil {
 		tx.Rollback()
 		return Transaction{}, err
@@ -62,17 +70,11 @@ func (t *TransactionRepository) AddTransaction(ctx context.Context, transaction 
 	}
 
 	return Transaction{
-		ID:        transactionID,
+		ID:        transaction.ID,
 		UserID:    transaction.UserID,
 		Amount:    transaction.Amount,
-		CreatedAt: createdAt,
+		CreatedAt: transaction.CreatedAt,
 	}, nil
-}
-
-func (t *TransactionRepository) FindUserBalance(ctx context.Context, userID uuid.UUID) (float64, error) {
-	var balance float64
-	err := t.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(amount), 0)  FROM transactions WHERE user_id = $1`, userID).Scan(&balance)
-	return balance, err
 }
 
 func (t *TransactionRepository) GetUserTransactionHistory(ctx context.Context, userID uuid.UUID, page int, pageSize int) ([]Transaction, error) {

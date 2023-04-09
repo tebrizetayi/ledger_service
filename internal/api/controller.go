@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/tebrizetayi/ledger_service/internal/transaction_manager"
 
 	"github.com/google/uuid"
@@ -16,7 +17,7 @@ import (
 
 type TransactionManager interface {
 	AddTransaction(ctx context.Context, transaction transaction_manager.Transaction) (transaction_manager.Transaction, error)
-	GetUserBalance(ctx context.Context, userID uuid.UUID) (float64, error)
+	GetUserBalance(ctx context.Context, userID uuid.UUID) (decimal.Decimal, error)
 	GetUserTransactionHistory(ctx context.Context, userID uuid.UUID, page int, pageSize int) ([]transaction_manager.Transaction, error)
 }
 
@@ -51,8 +52,9 @@ func (c *Controller) GetUserBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	balanceFloat, _ := balance.Float64()
 	response := map[string]float64{
-		"balance": balance,
+		"balance": balanceFloat,
 	}
 	respondWithJSON(w, http.StatusOK, response)
 }
@@ -66,7 +68,7 @@ func (c *Controller) AddTransaction(w http.ResponseWriter, r *http.Request) {
 
 	transaction := transaction_manager.Transaction{
 		UserID:    addTransactionRequest.UserID,
-		Amount:    addTransactionRequest.Amount,
+		Amount:    decimal.NewFromFloat(addTransactionRequest.Amount),
 		ID:        uuid.New(),
 		CreatedAt: time.Now(),
 	}

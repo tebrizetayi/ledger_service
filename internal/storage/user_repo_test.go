@@ -3,7 +3,9 @@ package storage
 import (
 	"context"
 	"testing"
+	"time"
 
+	"github.com/shopspring/decimal"
 	utils "github.com/tebrizetayi/ledger_service/internal/test_utils"
 
 	"github.com/google/uuid"
@@ -21,8 +23,8 @@ func TestAddUser_Success(t *testing.T) {
 	userRepository := NewUserRepository(testEnv.DB)
 
 	user := User{
-		ID:       uuid.New(),
-		Username: "test",
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(0),
 	}
 
 	// Act
@@ -43,8 +45,8 @@ func TestAddUser_ExistingUser_Error(t *testing.T) {
 	userRepository := NewUserRepository(testEnv.DB)
 
 	exitingUser := User{
-		ID:       uuid.New(),
-		Username: "test",
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(0),
 	}
 
 	err = userRepository.Add(testEnv.Context, exitingUser)
@@ -70,8 +72,8 @@ func TestAddUser_MultipleUsers_Success(t *testing.T) {
 	users := []User{}
 	for i := 0; i < 3; i++ {
 		user := User{
-			ID:       uuid.New(),
-			Username: "test",
+			ID:      uuid.New(),
+			Balance: decimal.NewFromFloat(100),
 		}
 		users = append(users, user)
 	}
@@ -95,8 +97,8 @@ func TestFindByID_Success(t *testing.T) {
 
 	userID := uuid.New()
 	user := User{
-		ID:       userID,
-		Username: "test",
+		ID:      userID,
+		Balance: decimal.NewFromFloat(100),
 	}
 
 	err = userRepository.Add(testEnv.Context, user)
@@ -110,7 +112,7 @@ func TestFindByID_Success(t *testing.T) {
 	// Assert
 	assert.NoError(t, err)
 	assert.Equal(t, user.ID, foundUser.ID)
-	assert.Equal(t, user.Username, foundUser.Username)
+	assert.Equal(t, user.Balance, foundUser.Balance)
 }
 
 func TestFindByID_NotFound_Error(t *testing.T) {
@@ -128,6 +130,7 @@ func TestFindByID_NotFound_Error(t *testing.T) {
 
 	// Assert
 	assert.Error(t, err)
+	assert.Equal(t, ErrUserNotFound, err)
 }
 
 func TestAddUser_ContextCancel_Error(t *testing.T) {
@@ -143,12 +146,41 @@ func TestAddUser_ContextCancel_Error(t *testing.T) {
 	userRepository := NewUserRepository(testEnv.DB)
 
 	user := User{
-		ID:       uuid.New(),
-		Username: "test",
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(10),
 	}
 
 	// Act
 	cancel()
 	err = userRepository.Add(testEnv.Context, user)
+	// Assert
 	assert.Error(t, err)
+	assert.Equal(t, context.Canceled, err)
+}
+
+func TestAddUser_ContextTimeout_Error(t *testing.T) {
+	testEnv, err := utils.CreateTestEnv()
+	if err != nil {
+		t.Fatalf("failed to create env: %v", err)
+	}
+	defer testEnv.Cleanup()
+
+	ctx, cancel := context.WithTimeout(testEnv.Context, 1*time.Millisecond)
+	defer cancel()
+	testEnv.Context = ctx
+
+	userRepository := NewUserRepository(testEnv.DB)
+
+	user := User{
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(10),
+	}
+
+	// Act
+	time.Sleep(2 * time.Millisecond)
+	err = userRepository.Add(testEnv.Context, user)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Equal(t, context.DeadlineExceeded, err)
 }
