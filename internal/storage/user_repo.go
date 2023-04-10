@@ -24,6 +24,8 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 
 var ErrUserNotFound = errors.New("user not found")
 
+// FindByID returns a user by ID
+// If the user is not found, ErrUserNotFound is returned
 func (r *UserRepository) FindByID(ctx context.Context, id uuid.UUID) (User, error) {
 	var user User
 	err := r.db.QueryRowContext(ctx, "SELECT id, balance FROM users WHERE id = $1", id).Scan(&user.ID, &user.Balance)
@@ -39,6 +41,7 @@ func (r *UserRepository) FindByID(ctx context.Context, id uuid.UUID) (User, erro
 	return user, nil
 }
 
+// Add adds a new user to the database
 func (r *UserRepository) Add(ctx context.Context, u User) error {
 	_, err := r.db.ExecContext(ctx, "INSERT INTO users (id, balance) VALUES ($1, $2)", u.ID, u.Balance)
 	if err != nil {

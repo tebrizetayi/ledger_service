@@ -15,12 +15,14 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// TransactionManager is the interface for the transaction manager
 type TransactionManager interface {
 	AddTransaction(ctx context.Context, transaction transactionmanager.Transaction) (transactionmanager.Transaction, error)
 	GetUserBalance(ctx context.Context, userID uuid.UUID) (decimal.Decimal, error)
 	GetUserTransactionHistory(ctx context.Context, userID uuid.UUID, page int, pageSize int) ([]transactionmanager.Transaction, error)
 }
 
+// Controller is the API controller
 type Controller struct {
 	transactionmanager TransactionManager
 }
@@ -31,11 +33,13 @@ func NewController(tm TransactionManager) Controller {
 	}
 }
 
+// AddTransactionRequest is the request body for adding a transaction
 type AddTransactionRequest struct {
 	Amount         float64   `json:"amount"`
 	IdempotencyKey uuid.UUID `json:"idempotency_key"`
 }
 
+// GetUserBalanceResponse is the response body for getting a user's balance
 func (c *Controller) GetUserBalance(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -58,6 +62,7 @@ func (c *Controller) GetUserBalance(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, response)
 }
 
+// AddTransaction adds a transaction to the ledger
 func (c *Controller) AddTransaction(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -95,6 +100,7 @@ func (c *Controller) AddTransaction(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusCreated, response)
 }
 
+// GetUserTransactionHistory returns a user's transaction history
 func (c *Controller) GetUserTransactionHistory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
