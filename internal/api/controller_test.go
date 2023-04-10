@@ -100,12 +100,12 @@ func TestGetUserBalanceEndpoint(t *testing.T) {
 
 		// If the status is OK, check the balance in the response
 		if rr.Code == http.StatusOK {
-			var response map[string]float64
+			var response map[string]decimal.Decimal
 			err = json.Unmarshal(rr.Body.Bytes(), &response)
 			if err != nil {
 				t.Fatalf("failed to unmarshal response: %v", err)
 			}
-			assert.Equal(t, tc.expectedBalance, response["balance"])
+			assert.Equal(t, response["balance"].Equal(decimal.NewFromFloat(tc.expectedBalance)), true, fmt.Sprintf("expected balance %f, got %s", tc.expectedBalance, response["balance"].String()))
 		}
 	}
 }

@@ -52,9 +52,8 @@ func (c *Controller) GetUserBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	balanceFloat, _ := balance.Float64()
-	response := map[string]float64{
-		"balance": balanceFloat,
+	response := map[string]decimal.Decimal{
+		"balance": balance,
 	}
 	respondWithJSON(w, http.StatusOK, response)
 }
@@ -106,12 +105,13 @@ func (c *Controller) GetUserTransactionHistory(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	if page < 1 {
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil || page < 1 {
 		page = 1
 	}
-	pageSize, _ := strconv.Atoi(r.URL.Query().Get("pageSize"))
-	if pageSize < 1 {
+
+	pageSize, err := strconv.Atoi(r.URL.Query().Get("pageSize"))
+	if err != nil || pageSize < 1 {
 		pageSize = 10
 	}
 
