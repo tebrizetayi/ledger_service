@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,7 +17,7 @@ import (
 	"github.com/tebrizetayi/ledger_service/internal/api"
 	"github.com/tebrizetayi/ledger_service/internal/storage"
 	utils "github.com/tebrizetayi/ledger_service/internal/test_utils"
-	"github.com/tebrizetayi/ledger_service/internal/transaction_manager"
+	"github.com/tebrizetayi/ledger_service/internal/transactionmanager"
 )
 
 var (
@@ -58,7 +60,7 @@ func TestGetUserBalanceEndpoint(t *testing.T) {
 		defer testEnv.Cleanup()
 
 		storageClient := storage.NewStorageClient(testEnv.DB)
-		transactionManager := transaction_manager.NewTransactionManagerClient(storageClient)
+		transactionManager := transactionmanager.NewTransactionManagerClient(storageClient)
 
 		userId, _ := uuid.Parse(tc.userID)
 		user := storage.User{
@@ -71,7 +73,7 @@ func TestGetUserBalanceEndpoint(t *testing.T) {
 			t.Fatalf("failed to add user: %v", err)
 		}
 
-		_, err = transactionManager.AddTransaction(testEnv.Context, transaction_manager.Transaction{
+		_, err = transactionManager.AddTransaction(testEnv.Context, transactionmanager.Transaction{
 			UserID:    userId,
 			Amount:    decimal.NewFromFloat(tc.mockBalance),
 			ID:        uuid.New(),
@@ -109,11 +111,11 @@ func TestGetUserBalanceEndpoint(t *testing.T) {
 }
 
 func TestGetUserTransactionHistoryEndpoint(t *testing.T) {
-	user := transaction_manager.User{
+	user := transactionmanager.User{
 		ID:      uuid.New(),
 		Balance: decimal.NewFromFloat(0),
 	}
-	transactions := []transaction_manager.Transaction{
+	transactions := []transactionmanager.Transaction{
 		{
 			ID:             uuid.New(),
 			UserID:         user.ID,
@@ -135,16 +137,16 @@ func TestGetUserTransactionHistoryEndpoint(t *testing.T) {
 		userID               string
 		queryParams          string
 		expectedStatusCode   int
-		mockTransactions     []transaction_manager.Transaction
+		mockTransactions     []transactionmanager.Transaction
 		expectedError        error
-		expectedTransactions []transaction_manager.Transaction
+		expectedTransactions []transactionmanager.Transaction
 	}{
 		{
 			name:               "Valid user ID",
 			userID:             user.ID.String(),
 			queryParams:        "?page=1&pageSize=10",
 			expectedStatusCode: http.StatusOK,
-			mockTransactions: []transaction_manager.Transaction{
+			mockTransactions: []transactionmanager.Transaction{
 				{
 					ID:             transactions[0].ID,
 					UserID:         transactions[0].UserID,
@@ -161,7 +163,7 @@ func TestGetUserTransactionHistoryEndpoint(t *testing.T) {
 				},
 			},
 			expectedError: nil,
-			expectedTransactions: []transaction_manager.Transaction{
+			expectedTransactions: []transactionmanager.Transaction{
 				{
 					ID:             transactions[0].ID,
 					UserID:         transactions[0].UserID,
@@ -189,7 +191,7 @@ func TestGetUserTransactionHistoryEndpoint(t *testing.T) {
 			userID:               uuid.New().String(),
 			queryParams:          "?page=1&pageSize=10",
 			expectedStatusCode:   http.StatusOK,
-			expectedTransactions: []transaction_manager.Transaction{},
+			expectedTransactions: []transactionmanager.Transaction{},
 			mockTransactions:     nil,
 			expectedError:        nil,
 		},
@@ -204,7 +206,7 @@ func TestGetUserTransactionHistoryEndpoint(t *testing.T) {
 		defer testEnv.Cleanup()
 
 		storageClient := storage.NewStorageClient(testEnv.DB)
-		transactionManager := transaction_manager.NewTransactionManagerClient(storageClient)
+		transactionManager := transactionmanager.NewTransactionManagerClient(storageClient)
 
 		userId, _ := uuid.Parse(tc.userID)
 		user := storage.User{
@@ -218,7 +220,7 @@ func TestGetUserTransactionHistoryEndpoint(t *testing.T) {
 		}
 
 		for i := range tc.mockTransactions {
-			_, err = transactionManager.AddTransaction(testEnv.Context, transaction_manager.Transaction{
+			_, err = transactionManager.AddTransaction(testEnv.Context, transactionmanager.Transaction{
 				UserID:         tc.mockTransactions[i].UserID,
 				Amount:         tc.mockTransactions[i].Amount,
 				ID:             tc.mockTransactions[i].ID,
@@ -243,7 +245,7 @@ func TestGetUserTransactionHistoryEndpoint(t *testing.T) {
 
 		// If the status is OK, check the transactions in the response
 		if rr.Code == http.StatusOK {
-			var transactions []transaction_manager.Transaction
+			var transactions []transactionmanager.Transaction
 			err = json.Unmarshal(rr.Body.Bytes(), &transactions)
 			if err != nil {
 				t.Fatalf("failed to unmarshal response: %v", err)
@@ -265,6 +267,7 @@ func TestGetUserTransactionHistoryEndpoint(t *testing.T) {
 
 func TestAddTransaction(t *testing.T) {
 	testUserID := uuid.New()
+	idempotency_key := uuid.New().String()
 	testCases := []struct {
 		name               string
 		requestBody        []byte
@@ -273,7 +276,7 @@ func TestAddTransaction(t *testing.T) {
 	}{
 		{
 			name:               "Valid transaction",
-			requestBody:        []byte(`{"user_id":"` + testUserID.String() + `", "amount":100}`),
+			requestBody:        []byte(`{"user_id":"` + testUserID.String() + `", "amount":100, "idempotency_key":"` + idempotency_key + `"}`),
 			expectedStatusCode: http.StatusCreated,
 			mockError:          nil,
 		},
@@ -294,7 +297,7 @@ func TestAddTransaction(t *testing.T) {
 			defer testEnv.Cleanup()
 
 			storageClient := storage.NewStorageClient(testEnv.DB)
-			transactionManager := transaction_manager.NewTransactionManagerClient(storageClient)
+			transactionManager := transactionmanager.NewTransactionManagerClient(storageClient)
 
 			user := storage.User{
 				ID:      testUserID,
@@ -341,7 +344,86 @@ func TestAddTransaction(t *testing.T) {
 	}
 }
 
-func transactionsEqual(a, b transaction_manager.Transaction) bool {
+func TestAddTransaction_MultipleRequestWithSameAmount(t *testing.T) {
+	testUserID := uuid.New()
+	idempotencyKey := uuid.New().String()
+	testCases := []struct {
+		name               string
+		requestBody        []byte
+		expectedStatusCode int
+		mockError          error
+	}{
+		{
+			name:               "Valid transaction",
+			requestBody:        []byte(fmt.Sprintf(`{"user_id":"%s", "amount":100, "idempotency_key":"%s"}`, testUserID.String(), idempotencyKey)),
+			expectedStatusCode: http.StatusCreated,
+			mockError:          nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a test environment
+			testEnv, err := utils.CreateTestEnv()
+			if err != nil {
+				t.Fatalf("failed to create test env: %v", err)
+			}
+			defer testEnv.Cleanup()
+
+			storageClient := storage.NewStorageClient(testEnv.DB)
+			transactionManager := transactionmanager.NewTransactionManagerClient(storageClient)
+
+			user := storage.User{
+				ID:      testUserID,
+				Balance: decimal.NewFromFloat(0),
+			}
+
+			err = storageClient.UserRepository.Add(testEnv.Context, user)
+			if err != nil {
+				t.Fatalf("failed to add user: %v", err)
+			}
+
+			// Create the controller and the test request
+			controller := api.NewController(transactionManager)
+			newAPI := api.NewAPI(controller)
+
+			concurrentRequests := 1000
+			startCh := make(chan struct{})
+			var wg sync.WaitGroup
+			wg.Add(concurrentRequests)
+
+			successCount := int32(0)
+			unsuccessCount := int32(0)
+
+			for i := 0; i < concurrentRequests; i++ {
+				req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf(AddTransactionTemplate, testUserID.String()), bytes.NewBuffer(tc.requestBody))
+				rr := httptest.NewRecorder()
+
+				go func() {
+					<-startCh
+
+					newAPI.ServeHTTP(rr, req)
+					if rr.Code == http.StatusCreated {
+						atomic.AddInt32(&successCount, 1)
+					} else {
+						atomic.AddInt32(&unsuccessCount, 1)
+					}
+
+					wg.Done()
+				}()
+			}
+
+			close(startCh)
+			wg.Wait()
+
+			// Check the response status code
+			assert.Equal(t, int32(1), successCount)
+			assert.Equal(t, int32(concurrentRequests-1), unsuccessCount)
+		})
+	}
+}
+
+func transactionsEqual(a, b transactionmanager.Transaction) bool {
 	return a.ID == b.ID &&
 		a.Amount.Equal(b.Amount) &&
 		a.UserID == b.UserID &&

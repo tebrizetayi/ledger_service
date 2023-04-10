@@ -9,25 +9,25 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"github.com/tebrizetayi/ledger_service/internal/transaction_manager"
+	"github.com/tebrizetayi/ledger_service/internal/transactionmanager"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
 type TransactionManager interface {
-	AddTransaction(ctx context.Context, transaction transaction_manager.Transaction) (transaction_manager.Transaction, error)
+	AddTransaction(ctx context.Context, transaction transactionmanager.Transaction) (transactionmanager.Transaction, error)
 	GetUserBalance(ctx context.Context, userID uuid.UUID) (decimal.Decimal, error)
-	GetUserTransactionHistory(ctx context.Context, userID uuid.UUID, page int, pageSize int) ([]transaction_manager.Transaction, error)
+	GetUserTransactionHistory(ctx context.Context, userID uuid.UUID, page int, pageSize int) ([]transactionmanager.Transaction, error)
 }
 
 type Controller struct {
-	transaction_manager TransactionManager
+	transactionmanager TransactionManager
 }
 
 func NewController(tm TransactionManager) Controller {
 	return Controller{
-		transaction_manager: tm,
+		transactionmanager: tm,
 	}
 }
 
@@ -46,7 +46,7 @@ func (c *Controller) GetUserBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	balance, err := c.transaction_manager.GetUserBalance(ctx, userID)
+	balance, err := c.transactionmanager.GetUserBalance(ctx, userID)
 	if err != nil {
 		httpError(w, fmt.Sprintf("Error retrieving user balance %v", err), http.StatusInternalServerError)
 		return
@@ -75,7 +75,7 @@ func (c *Controller) AddTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	transaction := transaction_manager.Transaction{
+	transaction := transactionmanager.Transaction{
 		UserID:         userID,
 		Amount:         decimal.NewFromFloat(addTransactionRequest.Amount),
 		ID:             uuid.New(),
@@ -83,7 +83,7 @@ func (c *Controller) AddTransaction(w http.ResponseWriter, r *http.Request) {
 		IdempotencyKey: addTransactionRequest.IdempotencyKey,
 	}
 
-	if _, err := c.transaction_manager.AddTransaction(ctx, transaction); err != nil {
+	if _, err := c.transactionmanager.AddTransaction(ctx, transaction); err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -115,7 +115,7 @@ func (c *Controller) GetUserTransactionHistory(w http.ResponseWriter, r *http.Re
 		pageSize = 10
 	}
 
-	transactions, err := c.transaction_manager.GetUserTransactionHistory(ctx, userID, page, pageSize)
+	transactions, err := c.transactionmanager.GetUserTransactionHistory(ctx, userID, page, pageSize)
 	if err != nil {
 		httpError(w, err.Error(), http.StatusInternalServerError)
 		return

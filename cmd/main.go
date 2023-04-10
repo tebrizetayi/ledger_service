@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/tebrizetayi/ledger_service/internal/api"
 	"github.com/tebrizetayi/ledger_service/internal/storage"
-	"github.com/tebrizetayi/ledger_service/internal/transaction_manager"
+	"github.com/tebrizetayi/ledger_service/internal/transactionmanager"
 
 	_ "github.com/lib/pq"
 )
@@ -39,7 +39,7 @@ func main() {
 
 	// Services
 	storageClient := storage.NewStorageClient(db)
-	transactionManager := transaction_manager.NewTransactionManagerClient(storageClient)
+	transactionManager := transactionmanager.NewTransactionManagerClient(storageClient)
 	controller := api.NewController(transactionManager)
 
 	// Start the HTTP service listening for requests.

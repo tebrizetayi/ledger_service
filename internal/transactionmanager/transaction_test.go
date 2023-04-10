@@ -1,4 +1,4 @@
-package transaction_manager
+package transactionmanager
 
 import (
 	"sync"
@@ -105,7 +105,6 @@ func TestAddTransaction_Idempotency_Concurrency(t *testing.T) {
 		t.Fatalf("failed to add user: %v", err)
 	}
 
-	// Prepare
 	idempotencyKey := uuid.New()
 	const concurrentRequests = 100
 
@@ -133,14 +132,9 @@ func TestAddTransaction_Idempotency_Concurrency(t *testing.T) {
 			wg.Done()
 		}()
 	}
-
-	time.Sleep(100 * time.Millisecond)
 	close(startCh)
-
 	wg.Wait()
 
 	// Assert
-	if successCount != 1 {
-		t.Fatalf("expected exactly 1 successful transaction, got %d", successCount)
-	}
+	assert.Equal(t, int32(1), successCount, "only one transaction should be added")
 }

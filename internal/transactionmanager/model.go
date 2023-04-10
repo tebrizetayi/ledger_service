@@ -1,4 +1,4 @@
-package transaction_manager
+package transactionmanager
 
 import (
 	"time"
