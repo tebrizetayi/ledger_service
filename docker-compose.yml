@@ -5,7 +5,7 @@ networks:
     name: ledger-network
 
 services:
-  ledger_service: # ledger service
+  ledgerservice: # ledger service
     networks:
       - default
     build:

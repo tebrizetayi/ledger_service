@@ -17,9 +17,9 @@ COPY . .
 EXPOSE 8080
 
 # Run the service
-RUN go build -o ledger_service ./cmd/.
+RUN go build -o ledgerservice ./cmd/.
 
 # run binary
-ENTRYPOINT [ "./ledger_service" ]
+ENTRYPOINT [ "./ledgerservice" ]
 
 

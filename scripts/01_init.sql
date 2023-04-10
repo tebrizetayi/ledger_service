@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     user_id UUID NOT NULL,
     amount DOUBLE PRECISION NOT NULL,
     created_at TIMESTAMP NOT NULL,
-    idempotency_key UUID NOT NULL,
+    idempotency_key UUID NOT NULL UNIQUE,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 

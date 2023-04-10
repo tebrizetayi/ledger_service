@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	utils "github.com/tebrizetayi/ledger_service/internal/test_utils"
+	utils "github.com/tebrizetayi/ledgerservice/internal/test_utils"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

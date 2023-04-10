@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
-	"github.com/tebrizetayi/ledger_service/internal/storage"
+	"github.com/tebrizetayi/ledgerservice/internal/storage"
 )
 
 type Storage interface {

@@ -14,10 +14,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
-	"github.com/tebrizetayi/ledger_service/internal/api"
-	"github.com/tebrizetayi/ledger_service/internal/storage"
-	utils "github.com/tebrizetayi/ledger_service/internal/test_utils"
-	"github.com/tebrizetayi/ledger_service/internal/transactionmanager"
+	"github.com/tebrizetayi/ledgerservice/internal/api"
+	"github.com/tebrizetayi/ledgerservice/internal/storage"
+	utils "github.com/tebrizetayi/ledgerservice/internal/test_utils"
+	"github.com/tebrizetayi/ledgerservice/internal/transactionmanager"
 )
 
 var (

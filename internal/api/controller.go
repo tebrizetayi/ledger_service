@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"github.com/tebrizetayi/ledger_service/internal/transactionmanager"
+	"github.com/tebrizetayi/ledgerservice/internal/transactionmanager"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"

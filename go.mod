@@ -1,4 +1,4 @@
-module github.com/tebrizetayi/ledger_service
+module github.com/tebrizetayi/ledgerservice
 
 go 1.20
 

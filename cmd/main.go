@@ -10,9 +10,9 @@ import (
 	"syscall"
 
 	"github.com/spf13/viper"
-	"github.com/tebrizetayi/ledger_service/internal/api"
-	"github.com/tebrizetayi/ledger_service/internal/storage"
-	"github.com/tebrizetayi/ledger_service/internal/transactionmanager"
+	"github.com/tebrizetayi/ledgerservice/internal/api"
+	"github.com/tebrizetayi/ledgerservice/internal/storage"
+	"github.com/tebrizetayi/ledgerservice/internal/transactionmanager"
 
 	_ "github.com/lib/pq"
 )

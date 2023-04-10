@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"github.com/tebrizetayi/ledger_service/internal/storage"
-	utils "github.com/tebrizetayi/ledger_service/internal/test_utils"
+	"github.com/tebrizetayi/ledgerservice/internal/storage"
+	utils "github.com/tebrizetayi/ledgerservice/internal/test_utils"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

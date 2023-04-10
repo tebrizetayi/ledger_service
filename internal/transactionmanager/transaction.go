@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/shopspring/decimal"
-	"github.com/tebrizetayi/ledger_service/internal/storage"
+	"github.com/tebrizetayi/ledgerservice/internal/storage"
 
 	"context"
 
@@ -83,13 +83,4 @@ func (tm *TransactionManagerClient) GetUserTransactionHistory(ctx context.Contex
 		})
 	}
 	return transactions, nil
-}
-
-func (tm *TransactionManagerClient) IsUserValid(ctx context.Context, userID uuid.UUID) (bool, error) {
-	user, err := tm.storageClient.UserRepository.FindByID(ctx, userID)
-	if err != nil {
-		return false, err
-	}
-
-	return user.ID != uuid.Nil, nil
 }
