@@ -85,7 +85,7 @@ func TestAddTransaction_Success(t *testing.T) {
 	assert.Equal(t, user.ID, transaction.UserID)
 }
 
-func TestAddTransaction_Idempotency_Concurrency(t *testing.T) {
+func TestAddTransaction_IdempotencySameAmount_Concurrency(t *testing.T) {
 	// Assign
 	testEnv, err := utils.CreateTestEnv()
 	if err != nil {
@@ -137,4 +137,58 @@ func TestAddTransaction_Idempotency_Concurrency(t *testing.T) {
 
 	// Assert
 	assert.Equal(t, int32(1), successCount, "only one transaction should be added")
+}
+
+func TestAddTransaction_IdempotencyDifferentAmount_Concurrency(t *testing.T) {
+	// Assign
+	testEnv, err := utils.CreateTestEnv()
+	if err != nil {
+		t.Fatalf("failed to create test env: %v", err)
+	}
+	defer testEnv.Cleanup()
+
+	storageClient := storage.NewStorageClient(testEnv.DB)
+	transactionManager := NewTransactionManagerClient(storageClient)
+
+	user := storage.User{
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(0),
+	}
+	err = transactionManager.storageClient.UserRepository.Add(testEnv.Context, user)
+	if err != nil {
+		t.Fatalf("failed to add user: %v", err)
+	}
+
+	idempotencyKey := uuid.New()
+	const concurrentRequests = 1000
+
+	startCh := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(concurrentRequests)
+
+	// Act
+	successCount := int32(0)
+	for i := 0; i < concurrentRequests; i++ {
+		go func(i int) {
+			<-startCh
+			_, err := transactionManager.AddTransaction(testEnv.Context, Transaction{
+				ID:             uuid.New(),
+				Amount:         decimal.NewFromFloat(float64(i + 1)),
+				UserID:         user.ID,
+				CreatedAt:      time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+				IdempotencyKey: idempotencyKey,
+			})
+			if err == nil {
+				atomic.AddInt32(&successCount, 1)
+			} else if err != ErrTransactionAlreadyExist {
+				t.Errorf("unexpected error: %v", err)
+			}
+			wg.Done()
+		}(i)
+	}
+	close(startCh)
+	wg.Wait()
+
+	// Assert
+	assert.Equal(t, int32(concurrentRequests), successCount, "only one transaction should be added")
 }

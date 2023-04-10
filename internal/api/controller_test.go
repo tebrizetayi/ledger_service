@@ -423,6 +423,65 @@ func TestAddTransaction_MultipleRequestWithSameAmount(t *testing.T) {
 	}
 }
 
+func TestAddTransaction_MultipleRequestWithDifferentAmount(t *testing.T) {
+
+	// Create a test environment
+	testEnv, err := utils.CreateTestEnv()
+	if err != nil {
+		t.Fatalf("failed to create test env: %v", err)
+	}
+	defer testEnv.Cleanup()
+
+	storageClient := storage.NewStorageClient(testEnv.DB)
+	transactionManager := transactionmanager.NewTransactionManagerClient(storageClient)
+
+	idempotencyKey := uuid.New().String()
+	user := storage.User{
+		ID:      uuid.New(),
+		Balance: decimal.NewFromFloat(0),
+	}
+
+	err = storageClient.UserRepository.Add(testEnv.Context, user)
+	if err != nil {
+		t.Fatalf("failed to add user: %v", err)
+	}
+
+	// Create the controller and the test request
+	controller := api.NewController(transactionManager)
+	newAPI := api.NewAPI(controller)
+
+	//Dont make  it greater.There can be issues beacause of rate limiter.
+	concurrentRequests := 5
+	startCh := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(int(concurrentRequests))
+
+	successCount := int32(0)
+
+	for i := 0; i < int(concurrentRequests); i++ {
+		go func(i float64) {
+
+			requestBody := []byte(fmt.Sprintf(`{"user_id":"%s", "amount":%f, "idempotency_key":"%s"}`, user.ID.String(), i, idempotencyKey))
+			req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf(AddTransactionTemplate, user.ID.String()), bytes.NewBuffer(requestBody))
+			rr := httptest.NewRecorder()
+			<-startCh
+			newAPI.ServeHTTP(rr, req)
+			if rr.Code == http.StatusCreated {
+				atomic.AddInt32(&successCount, 1)
+			}
+			wg.Done()
+		}(float64(i + 1))
+	}
+
+	// Wait for the preparation of reqeusts.
+	close(startCh)
+	wg.Wait()
+
+	// Check the response status code
+	assert.Equal(t, int32(concurrentRequests), successCount)
+
+}
+
 func transactionsEqual(a, b transactionmanager.Transaction) bool {
 	return a.ID == b.ID &&
 		a.Amount.Equal(b.Amount) &&

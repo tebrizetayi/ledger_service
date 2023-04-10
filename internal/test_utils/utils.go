@@ -115,8 +115,9 @@ func CreateTestDB(ctx context.Context) (*sql.DB, func(), error) {
 		user_id UUID NOT NULL,
 		amount DOUBLE PRECISION NOT NULL,
 		created_at TIMESTAMP NOT NULL,
-		idempotency_key UUID NOT NULL UNIQUE,
-		FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+		idempotency_key UUID NOT NULL,
+		FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+		UNIQUE (idempotency_key, amount)
 	);`
 
 	_, err = testDb.Exec(script)
