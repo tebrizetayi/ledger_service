@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/spf13/viper"
 	"github.com/tebrizetayi/ledger_service/internal/api"
 	"github.com/tebrizetayi/ledger_service/internal/storage"
 	"github.com/tebrizetayi/ledger_service/internal/transaction_manager"
@@ -17,13 +18,8 @@ import (
 )
 
 func main() {
-
-	port := os.Getenv("SERVER_LISTEN_ADDR")
-	if port == "" {
-		port = ":8080"
-	}
-
-	db, err := connectToDatabase()
+	config := initConfig()
+	db, err := connectToDatabase(config.DB)
 	if err != nil {
 		log.Fatalf("Failed to connect to the database: %v", err)
 	}
@@ -48,13 +44,13 @@ func main() {
 
 	// Start the HTTP service listening for requests.
 	api := http.Server{
-		Addr:           port,
+		Addr:           config.App.Port,
 		Handler:        api.NewAPI(controller),
 		MaxHeaderBytes: 1 << 20,
 	}
 
 	go func() {
-		log.Printf("main : API Listening %s", port)
+		log.Printf("main : API Listening %s", config.App.Port)
 		serverErrors <- api.ListenAndServe()
 	}()
 
@@ -69,14 +65,52 @@ func main() {
 		log.Printf("main : %v : Start shutdown..", sig)
 	}
 }
-func connectToDatabase() (*sql.DB, error) {
-	host := "postgres"
-	port := 5432
-	user := "postgres"
-	password := "postgres"
-	dbname := "ledger"
 
-	connectionString := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+type Config struct {
+	DB  DBConfig
+	App AppConfig
+}
+type AppConfig struct {
+	Port string
+}
+
+type DBConfig struct {
+	Host     string
+	Port     int
+	User     string
+	Password string
+	DBName   string
+	SSLMode  string
+}
+
+func initConfig() Config {
+	viper.AutomaticEnv()
+
+	return Config{
+		DB: DBConfig{
+			Host:     viper.GetString("POSTGRES_HOST"),
+			Port:     viper.GetInt("POSTGRES_PORT"),
+			User:     viper.GetString("POSTGRES_USER"),
+			Password: viper.GetString("POSTGRES_PASSWORD"),
+			DBName:   viper.GetString("POSTGRES_DB"),
+			SSLMode:  viper.GetString("POSTGRES_SSLMODE"),
+		},
+		App: AppConfig{
+			Port: viper.GetString("PORT"),
+		},
+	}
+}
+
+func connectToDatabase(dBConfig DBConfig) (*sql.DB, error) {
+	connectionString := fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		dBConfig.Host,
+		dBConfig.Port,
+		dBConfig.User,
+		dBConfig.Password,
+		dBConfig.DBName,
+		dBConfig.SSLMode,
+	)
 
 	db, err := sql.Open("postgres", connectionString)
 	if err != nil {

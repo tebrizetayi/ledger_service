@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	_ "github.com/lib/pq"
 
@@ -99,6 +100,10 @@ func CreateTestDB(ctx context.Context) (*sql.DB, func(), error) {
 		return nil, nil, err
 	}
 
+	testDb.SetMaxOpenConns(50)                  // Maximum number of open connections to the database
+	testDb.SetMaxIdleConns(10)                  // Maximum number of connections in the idle connection pool
+	testDb.SetConnMaxLifetime(30 * time.Minute) // Maximum amount of time a connection may be reused
+
 	// Load and execute the SQL script to create the required tables
 	script := `CREATE TABLE IF NOT EXISTS  users (
 		id UUID PRIMARY KEY,
@@ -110,6 +115,7 @@ func CreateTestDB(ctx context.Context) (*sql.DB, func(), error) {
 		user_id UUID NOT NULL,
 		amount DOUBLE PRECISION NOT NULL,
 		created_at TIMESTAMP NOT NULL,
+		idempotency_key UUID NOT NULL,
 		FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 	);`
 

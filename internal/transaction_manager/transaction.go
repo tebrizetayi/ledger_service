@@ -1,6 +1,7 @@
 package transaction_manager
 
 import (
+	"database/sql"
 	"errors"
 
 	"github.com/shopspring/decimal"
@@ -12,7 +13,8 @@ import (
 )
 
 var (
-	ErrInvalidTransaction = errors.New("invalid transaction")
+	ErrInvalidTransaction      = errors.New("invalid transaction")
+	ErrTransactionAlreadyExist = errors.New("transaction already exist")
 )
 
 func NewTransactionManagerClient(storage storage.StorageClient) *TransactionManagerClient {
@@ -26,11 +28,22 @@ func (tm *TransactionManagerClient) AddTransaction(ctx context.Context, transact
 		return Transaction{}, ErrInvalidTransaction
 	}
 
-	_, err := tm.storageClient.TransactionRepository.AddTransaction(ctx, storage.Transaction{
-		ID:        transactionEntity.ID,
-		Amount:    transactionEntity.Amount,
-		UserID:    transactionEntity.UserID,
-		CreatedAt: transactionEntity.CreatedAt,
+	// Check if the transaction already exists
+	transaction, err := tm.storageClient.TransactionRepository.FindTransactionByIdempotencyKey(ctx, transactionEntity.IdempotencyKey)
+	if err != nil && err != sql.ErrNoRows {
+		return Transaction{}, err
+	}
+
+	if transaction.ID != uuid.Nil {
+		return Transaction{}, ErrTransactionAlreadyExist
+	}
+
+	_, err = tm.storageClient.TransactionRepository.AddTransaction(ctx, storage.Transaction{
+		ID:             transactionEntity.ID,
+		Amount:         transactionEntity.Amount,
+		UserID:         transactionEntity.UserID,
+		CreatedAt:      transactionEntity.CreatedAt,
+		IdempotencyKey: transactionEntity.IdempotencyKey,
 	})
 	if err != nil {
 		return Transaction{}, err
@@ -68,10 +81,11 @@ func (tm *TransactionManagerClient) GetUserTransactionHistory(ctx context.Contex
 	transactions := []Transaction{}
 	for _, transaction := range transactionResult {
 		transactions = append(transactions, Transaction{
-			ID:        transaction.ID,
-			Amount:    transaction.Amount,
-			UserID:    transaction.UserID,
-			CreatedAt: transaction.CreatedAt,
+			ID:             transaction.ID,
+			Amount:         transaction.Amount,
+			UserID:         transaction.UserID,
+			CreatedAt:      transaction.CreatedAt,
+			IdempotencyKey: transaction.IdempotencyKey,
 		})
 	}
 	return transactions, nil

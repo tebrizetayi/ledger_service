@@ -2,6 +2,7 @@ package transaction_manager
 
 import (
 	"testing"
+	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/tebrizetayi/ledger_service/internal/storage"
@@ -34,9 +35,11 @@ func TestAddTransaction_NotValidAmount(t *testing.T) {
 
 	// Act
 	_, err = transactionManager.AddTransaction(testEnv.Context, Transaction{
-		ID:     uuid.New(),
-		Amount: decimal.NewFromFloat(0),
-		UserID: user.ID,
+		ID:             uuid.New(),
+		Amount:         decimal.NewFromFloat(0),
+		UserID:         user.ID,
+		CreatedAt:      time.Now(),
+		IdempotencyKey: uuid.New(),
 	})
 
 	// Assert
@@ -65,16 +68,17 @@ func TestAddTransaction_Success(t *testing.T) {
 
 	// Act
 	transaction, err := transactionManager.AddTransaction(testEnv.Context, Transaction{
-		ID:     uuid.New(),
-		Amount: decimal.NewFromFloat(100),
-		UserID: user.ID,
+		ID:             uuid.New(),
+		Amount:         decimal.NewFromFloat(100),
+		UserID:         user.ID,
+		CreatedAt:      time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+		IdempotencyKey: uuid.New(),
 	})
 	if err != nil {
 		t.Fatalf("failed to add transaction: %v", err)
 	}
 
 	// Assert
-	actualAmount, _ := transaction.Amount.Float64()
-	assert.Equal(t, 100.0, actualAmount, "amount should be 100.0")
+	assert.True(t, transaction.Amount.Equal(decimal.NewFromFloat(100)), "amount should be 100.0")
 	assert.Equal(t, user.ID, transaction.UserID)
 }

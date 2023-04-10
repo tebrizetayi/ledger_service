@@ -23,6 +23,7 @@ services:
       POSTGRES_HOST: &PGHOST "postgres"
       POSTGRES_PORT: &PGPORT "5432"
       PGSSLMODE: &PGSSLMODE "disable"
+      PORT: &PORT "8080"
   postgres: # postgres service
     networks:
       - default

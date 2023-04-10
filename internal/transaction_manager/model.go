@@ -17,11 +17,13 @@ type TransactionManagerClient struct {
 }
 
 type Transaction struct {
-	ID        uuid.UUID       `json:"id"`
-	Amount    decimal.Decimal `json:"amount"`
-	UserID    uuid.UUID       `json:"user_id"`
-	CreatedAt time.Time       `json:"created_at"`
+	ID             uuid.UUID       `json:"id"`
+	Amount         decimal.Decimal `json:"amount"`
+	UserID         uuid.UUID       `json:"user_id"`
+	CreatedAt      time.Time       `json:"created_at"`
+	IdempotencyKey uuid.UUID       `json:"idempotency_key"` // Add idempotency key to the transaction struct
 }
+
 type User struct {
 	ID      uuid.UUID
 	Balance decimal.Decimal

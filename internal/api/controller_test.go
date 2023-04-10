@@ -115,16 +115,18 @@ func TestGetUserTransactionHistoryEndpoint(t *testing.T) {
 	}
 	transactions := []transaction_manager.Transaction{
 		{
-			ID:        uuid.New(),
-			UserID:    user.ID,
-			Amount:    decimal.NewFromFloat(100),
-			CreatedAt: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			ID:             uuid.New(),
+			UserID:         user.ID,
+			Amount:         decimal.NewFromFloat(100),
+			CreatedAt:      time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			IdempotencyKey: uuid.New(),
 		},
 		{
-			ID:        uuid.New(),
-			UserID:    user.ID,
-			Amount:    decimal.NewFromFloat(50),
-			CreatedAt: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			ID:             uuid.New(),
+			UserID:         user.ID,
+			Amount:         decimal.NewFromFloat(50),
+			CreatedAt:      time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			IdempotencyKey: uuid.New(),
 		},
 	}
 
@@ -144,31 +146,35 @@ func TestGetUserTransactionHistoryEndpoint(t *testing.T) {
 			expectedStatusCode: http.StatusOK,
 			mockTransactions: []transaction_manager.Transaction{
 				{
-					ID:        transactions[0].ID,
-					UserID:    transactions[0].UserID,
-					Amount:    transactions[0].Amount,
-					CreatedAt: transactions[0].CreatedAt,
+					ID:             transactions[0].ID,
+					UserID:         transactions[0].UserID,
+					Amount:         transactions[0].Amount,
+					CreatedAt:      transactions[0].CreatedAt,
+					IdempotencyKey: transactions[0].IdempotencyKey,
 				},
 				{
-					ID:        transactions[1].ID,
-					UserID:    transactions[1].UserID,
-					Amount:    transactions[1].Amount,
-					CreatedAt: transactions[1].CreatedAt,
+					ID:             transactions[1].ID,
+					UserID:         transactions[1].UserID,
+					Amount:         transactions[1].Amount,
+					CreatedAt:      transactions[1].CreatedAt,
+					IdempotencyKey: transactions[1].IdempotencyKey,
 				},
 			},
 			expectedError: nil,
 			expectedTransactions: []transaction_manager.Transaction{
 				{
-					ID:        transactions[0].ID,
-					UserID:    transactions[0].UserID,
-					Amount:    transactions[0].Amount,
-					CreatedAt: transactions[0].CreatedAt,
+					ID:             transactions[0].ID,
+					UserID:         transactions[0].UserID,
+					Amount:         transactions[0].Amount,
+					CreatedAt:      transactions[0].CreatedAt,
+					IdempotencyKey: transactions[0].IdempotencyKey,
 				},
 				{
-					ID:        transactions[1].ID,
-					UserID:    transactions[1].UserID,
-					Amount:    transactions[1].Amount,
-					CreatedAt: transactions[1].CreatedAt,
+					ID:             transactions[1].ID,
+					UserID:         transactions[1].UserID,
+					Amount:         transactions[1].Amount,
+					CreatedAt:      transactions[1].CreatedAt,
+					IdempotencyKey: transactions[1].IdempotencyKey,
 				},
 			},
 		},
@@ -213,10 +219,11 @@ func TestGetUserTransactionHistoryEndpoint(t *testing.T) {
 
 		for i := range tc.mockTransactions {
 			_, err = transactionManager.AddTransaction(testEnv.Context, transaction_manager.Transaction{
-				UserID:    tc.mockTransactions[i].UserID,
-				Amount:    tc.mockTransactions[i].Amount,
-				ID:        tc.mockTransactions[i].ID,
-				CreatedAt: tc.mockTransactions[i].CreatedAt,
+				UserID:         tc.mockTransactions[i].UserID,
+				Amount:         tc.mockTransactions[i].Amount,
+				ID:             tc.mockTransactions[i].ID,
+				CreatedAt:      tc.mockTransactions[i].CreatedAt,
+				IdempotencyKey: tc.mockTransactions[i].IdempotencyKey,
 			})
 			if err != nil {
 				t.Fatalf("failed to add transaction: %v", err)
@@ -243,12 +250,14 @@ func TestGetUserTransactionHistoryEndpoint(t *testing.T) {
 			}
 
 			for i := range tc.expectedTransactions {
-				assert.Contains(t, tc.expectedTransactions, transaction_manager.Transaction{
-					ID:        transactions[i].ID,
-					Amount:    transactions[i].Amount,
-					UserID:    transactions[i].UserID,
-					CreatedAt: transactions[i].CreatedAt,
-				}, fmt.Sprintf("expected transaction %v, got %v", tc.expectedTransactions, transactions[i]))
+				found := false
+				for _, expectedTransaction := range tc.expectedTransactions {
+					if transactionsEqual(transactions[i], expectedTransaction) {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, fmt.Sprintf("expected transaction %v, got %v", tc.expectedTransactions, transactions[i]))
 			}
 		}
 	}
@@ -326,8 +335,16 @@ func TestAddTransaction(t *testing.T) {
 
 				assert.Equal(t, 1, len(transactions))
 				assert.Equal(t, testUserID, transactions[0].UserID)
-				assert.Equal(t, 100.00, transactions[0].Amount)
+				assert.Equal(t, transactions[0].Amount.Equal(decimal.NewFromFloat(100)), true)
 			}
 		})
 	}
+}
+
+func transactionsEqual(a, b transaction_manager.Transaction) bool {
+	return a.ID == b.ID &&
+		a.Amount.Equal(b.Amount) &&
+		a.UserID == b.UserID &&
+		a.CreatedAt.Equal(b.CreatedAt) &&
+		a.IdempotencyKey == b.IdempotencyKey
 }

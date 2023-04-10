@@ -177,7 +177,7 @@ func TestAddUser_ContextTimeout_Error(t *testing.T) {
 	}
 
 	// Act
-	time.Sleep(2 * time.Millisecond)
+	time.Sleep(6 * time.Millisecond)
 	err = userRepository.Add(testEnv.Context, user)
 
 	// Assert
