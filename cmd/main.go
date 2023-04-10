@@ -44,7 +44,7 @@ func main() {
 
 	// Start the HTTP service listening for requests.
 	api := http.Server{
-		Addr:           config.App.Port,
+		Addr:           fmt.Sprintf(":%s", config.App.Port),
 		Handler:        api.NewAPI(controller),
 		MaxHeaderBytes: 1 << 20,
 	}
@@ -93,7 +93,7 @@ func initConfig() Config {
 			User:     viper.GetString("POSTGRES_USER"),
 			Password: viper.GetString("POSTGRES_PASSWORD"),
 			DBName:   viper.GetString("POSTGRES_DB"),
-			SSLMode:  viper.GetString("POSTGRES_SSLMODE"),
+			SSLMode:  viper.GetString("PGSSLMODE"),
 		},
 		App: AppConfig{
 			Port: viper.GetString("PORT"),

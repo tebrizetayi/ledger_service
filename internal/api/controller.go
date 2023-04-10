@@ -32,7 +32,6 @@ func NewController(tm TransactionManager) Controller {
 }
 
 type AddTransactionRequest struct {
-	UserID         uuid.UUID `json:"user_id"`
 	Amount         float64   `json:"amount"`
 	IdempotencyKey uuid.UUID `json:"idempotency_key"`
 }
@@ -62,6 +61,14 @@ func (c *Controller) GetUserBalance(w http.ResponseWriter, r *http.Request) {
 
 func (c *Controller) AddTransaction(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userID, err := uuid.Parse(vars["uid"])
+	if err != nil {
+		httpError(w, fmt.Sprintf("Invalid user ID %s", err), http.StatusBadRequest)
+		return
+	}
+
 	var addTransactionRequest AddTransactionRequest
 	if err := decodeJSON(r, &addTransactionRequest); err != nil {
 		httpError(w, err.Error(), http.StatusBadRequest)
@@ -69,7 +76,7 @@ func (c *Controller) AddTransaction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	transaction := transaction_manager.Transaction{
-		UserID:         addTransactionRequest.UserID,
+		UserID:         userID,
 		Amount:         decimal.NewFromFloat(addTransactionRequest.Amount),
 		ID:             uuid.New(),
 		CreatedAt:      time.Now(),
