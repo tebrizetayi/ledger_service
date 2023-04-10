@@ -1,8 +1,8 @@
 package transaction_manager
 
 import (
-	"database/sql"
 	"errors"
+	"strings"
 
 	"github.com/shopspring/decimal"
 	"github.com/tebrizetayi/ledger_service/internal/storage"
@@ -28,23 +28,17 @@ func (tm *TransactionManagerClient) AddTransaction(ctx context.Context, transact
 		return Transaction{}, ErrInvalidTransaction
 	}
 
-	// Check if the transaction already exists
-	transaction, err := tm.storageClient.TransactionRepository.FindTransactionByIdempotencyKey(ctx, transactionEntity.IdempotencyKey)
-	if err != nil && err != sql.ErrNoRows {
-		return Transaction{}, err
-	}
-
-	if transaction.ID != uuid.Nil {
-		return Transaction{}, ErrTransactionAlreadyExist
-	}
-
-	_, err = tm.storageClient.TransactionRepository.AddTransaction(ctx, storage.Transaction{
+	_, err := tm.storageClient.TransactionRepository.AddTransaction(ctx, storage.Transaction{
 		ID:             transactionEntity.ID,
 		Amount:         transactionEntity.Amount,
 		UserID:         transactionEntity.UserID,
 		CreatedAt:      transactionEntity.CreatedAt,
 		IdempotencyKey: transactionEntity.IdempotencyKey,
 	})
+
+	if err != nil && strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+		return Transaction{}, ErrTransactionAlreadyExist
+	}
 	if err != nil {
 		return Transaction{}, err
 	}
