@@ -1,4 +1,4 @@
-# API Readme
+# Ledger API Readme
 
 This is an API implementation for managing ledger transactions using Go. It is built on top of the Gorilla web toolkit.
 
