@@ -120,17 +120,17 @@ To improve the performance of `AddTransaction`, `GetUserBalance`, and `GetUserTr
 
 In my opinion, to achieve high availability for the service it should be deployed to cloud(GCP,AWS,Azure) and for example in the Google Cloud Platform (GCP), one could consider implementing the following strategies and leveraging various GCP services:
 
-Redundancy: I would suggest deploying multiple instances of the addtransaction service across different zones or regions using Google Kubernetes Engine (GKE) or Cloud Run. This approach would provide redundancy and help maintain service availability in case of instance or zone failures.
+Redundancy: I would suggest deploying multiple instances of the ledger service across different zones or regions using Google Kubernetes Engine (GKE) or Cloud Run. This approach would provide redundancy and help maintain service availability in case of instance or zone failures.
 
-Load balancing: In my view, employing GCP's Cloud Load Balancing to distribute incoming transaction requests among the available instances of the addtransaction service would be beneficial. This would help prevent overloading a single instance and improve overall performance and reliability.
+Load balancing: In my view, employing GCP's Cloud Load Balancing to distribute incoming transaction requests among the available instances of the ledger service would be beneficial. This would help prevent overloading a single instance and improve overall performance and reliability.
 
-Data replication: I would recommend using Google Cloud Spanner or Cloud SQL for the addtransaction service database, as they offer built-in data replication and high availability across multiple zones or regions. This would help ensure data consistency and accessibility.
+Data replication: I would recommend using Google Cloud Spanner or Cloud SQL for the ledger service database, as they offer built-in data replication and high availability across multiple zones or regions. This would help ensure data consistency and accessibility.
 
-Fault tolerance: To handle failures gracefully, I believe designing the addtransaction service with features such as retries, timeouts, and circuit breakers would be valuable. Asynchronous processing could also be implemented using Cloud Functions or Cloud Pub/Sub to improve fault tolerance.
+Fault tolerance: To handle failures gracefully, I believe designing the ledger service with features such as retries, timeouts, and circuit breakers would be valuable. Asynchronous processing could also be implemented using Cloud Functions or Cloud Pub/Sub to improve fault tolerance.
 
-Monitoring and health checks: I would advise utilizing Google Cloud Monitoring and Logging to monitor the performance, health, and error rates of the addtransaction service and its underlying infrastructure. Setting up health checks with Cloud Load Balancing or GKE would also be useful for detecting and reporting potential issues.
+Monitoring and health checks: I would advise utilizing Google Cloud Monitoring and Logging to monitor the performance, health, and error rates of the ledger service and its underlying infrastructure. Setting up health checks with Cloud Load Balancing or GKE would also be useful for detecting and reporting potential issues.
 
-Scalability: In my opinion, designing the addtransaction service for scalability by leveraging GKE's autoscaling, Cloud Run's automatic scaling, or App Engine's scaling features would be beneficial. This would ensure that the service can handle increased demand by adjusting the number of instances automatically.
+Scalability: In my opinion, designing the ledger service for scalability by leveraging GKE's autoscaling, Cloud Run's automatic scaling, or App Engine's scaling features would be beneficial. This would ensure that the service can handle increased demand by adjusting the number of instances automatically.
 
 By adopting these strategies and making use of GCP services, I believe high availability for the service can be achieved, ensuring uninterrupted access and operation for users even in the face of failures or increased demand.
 
